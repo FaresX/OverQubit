@@ -231,8 +231,11 @@ GET  /api/demos/{id}/jobs/{job_id}/events → SSE：{progress} … {done, result
 3. 运行：`julia -e 'using Pluto; Pluto.run()'` 后打开 `notebooks/*.jl`。
 4. **绘图一律用 `PlotlyBase.Plot(...)`，不用 PlotlyJS/SyncPlot**——PlotlyJS 的 SyncPlot 走 WebIO 浏览器桥（曾触发 "WebIO not detected"），PlotlyBase 的 HTML 显示通道（plotly div + CDN）无需 WebIO。另注意 PlotlyBase v0.8 没有 `plot` 函数，构造器是 `Plot`。
 5. **不要手改 notebook 里 Pluto 自动嵌入的 `PLUTO_PROJECT_TOML_CONTENTS`/`PLUTO_MANIFEST_TOML_CONTENTS`**；若其内容过期（如包 UUID 错位），删除这两个 cell 让 Pluto 用默认环境并在下次保存时重建。
-6. **notebook 数学公式一律 `\$...\$` 包裹**（Julia 字符串里 `$` 是插值符号必须转义），LaTeX 反斜杠一律双写（`\\varphi`、`\\cos`；单写 `\v` 等是合法转义=垂直制表符，会静默污染公式）；正文里的 `E_J`、`n_g` 等下标也必须写进公式，否则 Markdown 会把 `_` 当斜体标记吃掉。
+6. **装饰性 HTML 一律用 `@htl`（HypertextLiteral，已显式安装）产出真实 DOM**；不要把 HTML 塞进 `md"""`/`Markdown.parse`——stdlib Markdown 不解析 HTML 块，会原样显示成文本。公式排版用 HTML 上下标（`E<sub>J</sub>`、`<sup>1/4</sup>`）+ unicode（α、φ、ψ、⟩、↔），**不依赖 MathJax**（`$...$` 定界符在 Julia 字符串里还要跟插值打架，弃用）。`@htl` 字符串内插值只用 `$(var)`，不得出现其他 `$`。
 7. **图高写进 `Layout(height=...)`**（势阱图 620、色散图 560），不要依赖默认高度。
+8. **代码单元格默认折叠**：notebook 文件尾部写 `Cell order:` footer，代码 cell 用 `# ╟─<uuid>`、展示 cell 用 `# ╠═<uuid>`（header 与 footer 的 uuid 一致；格式经 Pluto 源码核实）。
+9. **单位约定**：引擎内部时间域频率一律 **rad/ns**（入口 GHz×2π）；`Ω_R = amp·|⟨0|n̂|1⟩|`（不除 2，对照 lab 系实驱动）；χ 定义为 **g²/Δ**（|0⟩/|1⟩ 的 S21 曲线位于 ωr∓χ，曲线间隔为 2χ）；载波积分需乘 `1/sinc(ωd·dt/2)` 补偿。
+10. **自测每个 notebook 用全新模块**（`Module(:NB_x)` + `Base.include_string` 预载物理模块）——共用模块会因重复 include 导致 `using` 绑定歧义。
 
 ## 12. 显式排除（本期不做）
 
