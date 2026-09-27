@@ -7,8 +7,105 @@ const CELL_RE = r"^\s*(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 const INCLUDE_RE = r"include\(joinpath\(@__DIR__, \"\.\.\", \"src\", \"[A-Za-z]+\.jl\"\)\)"
 const SRCS = [joinpath(@__DIR__, "..", "src", "OverQubit.jl"), joinpath(@__DIR__, "..", "src", "OverQubitViz.jl")]
 
+# —— 回归检查：cell 返回值不能是「一串 HTMLStr」——
+# Pluto 的 mime 选择把 application/vnd.pluto.tree+object 排在 text/html 前面，
+# 且 pluto_showable(...tree+object, ::Tuple) = true；于是 `html1, html2` 这种
+# 返回 tuple 的 cell 会被 tree viewer 以 collapsed 的 flex-row 渲染：
+# 两张图挤在同一行各占一半宽度（图例折竖排、标题溢出）、还带 "1:" "2:" 序号。
+# 正确做法是 oq_stack(...) 包成单个 HTMLStr。详见 OverQubitViz.oq_stack 的文档字符串。
+# 解析 HTMLStr 类型：cell 是在运行时 Module 里 include 的，类型住在 mod.OverQubitViz.HTMLStr。
+function _htmlstr_type(mod)
+	for m in (mod, Base.invokelatest(() -> try getfield(mod, :OverQubitViz) catch; nothing end))
+		m === nothing && continue
+		T = Base.invokelatest(() -> try getfield(m, :HTMLStr) catch; nothing end)
+		T isa Type && return T
+	end
+	nothing
+end
+
+function _is_htmlstr(T, x)
+	T === nothing ? nameof(typeof(x)) === :HTMLStr : x isa T
+end
+
+# Markdown.MD 同理：两个 md"..." 组成的 tuple 也会被 tree viewer 折成一行。
+function _is_md(mod, x)
+	nameof(typeof(x)) === :MD || return false
+	m = Base.invokelatest(() -> try getfield(mod, :Markdown) catch; nothing end)
+	m === nothing && return true
+	return try x isa Base.invokelatest(getfield, m, :MD) catch; true end
+end
+
+# —— 回归检查：cell 返回值不能是「一串 HTMLStr」——
+# Pluto 的 mime 选择（PlutoRunner 的 allmimes）把 application/vnd.pluto.tree+object 排在
+# text/html 前面，且 pluto_showable(...tree+object, ::Tuple) = true；于是 cell 末尾写
+#     html1, html2
+# 返回的 Tuple 会被 tree viewer 渲染成 <pluto-tree class="collapsed">，
+# treeview.css 里 collapsed 的 pluto-tree-items 是 flex-direction: row，
+# 两张图挤在同一行各占一半宽度（Plotly 把图例折成竖排、标题溢出）、还带 "1:" "2:" 序号。
+# 正确做法：oq_stack(html1, html2) 包成单个 HTMLStr。详见 OverQubitViz.oq_stack 文档字符串。
+function check_html_tuple(mod, val, nb::AbstractString, cell::Int)
+	val isa Union{Tuple, Vector, AbstractVector} || return nothing
+	els = collect(val)
+	T = _htmlstr_type(mod)
+	(isempty(els) || !all(x -> _is_htmlstr(T, x) || _is_md(mod, x), els)) && return nothing
+	println("  cell ", cell, " -> 返回了 ", length(els), " 个 HTML/MD 片段的 ", typeof(val).name.name,
+		"（Pluto 会用 tree viewer 并排渲染、图只剩一半宽）；请改用 oq_stack(...)")
+	error("排版回归：", nb, " cell ", string(cell), " 返回了 ", string(length(els)),
+		" 个 HTMLStr，应使用 oq_stack(...) 包成单个 HTMLStr")
+end
+
+const DOC_MARK = "\"\"\""
+
+# —— 静态检查：动画帧必须走 anim_frame ——
+# Plotly.js 的 frameMerge 在 frame 没给 traces 时按"从 0 开始"映射，frame.data[0]
+# 会被 plots.transition 合并进 gd.data[0]；若 trace 0 是背景曲线（势阱抛物线、
+# Bloch 线框），播放时整条曲线被单个 marker 顶替而消失。所以帧必须带 traces=[idx]，
+# 统一用 anim_frame(idx, name, trace) 构造。注释行与 docstring 行豁免。
+function check_no_raw_frames(path::AbstractString)
+	bad = Tuple{Int, String}[]
+	for (i, line) in enumerate(eachline(path))
+		s = strip(line)
+		(startswith(s, "#") || occursin("#", line) || occursin(DOC_MARK, s)) && continue
+		# 先剔除 anim_frame(，再看还剩不剩裸 frame(
+		occursin("frame(", replace(s, "anim_frame(" => "")) || continue
+		push!(bad, (i, s[1:min(72, length(s))]))
+	end
+	isempty(bad) && return nothing
+	for (i, l) in bad
+		println("  line ", i, " -> 裸 frame(：", l)
+	end
+	error("动画帧必须用 anim_frame(idx, name, trace)（自动带 traces=[idx]）：", basename(path),
+		" 有 ", length(bad), " 处裸 frame(")
+end
+
+# —— 静态检查：数学定界符内不许出现中日韩字符 ——
+# MathJax 的数学字体没有 CJK 字形，\text{中文} 会静默缺字/空白。中文一律放在 math 外面当 HTML。
+# 定界符只认 \(...\)（行内）与 \[...\]（display）；美元定界符不用（与 Julia 插值冲突）。
+const CJK_RE = r"[\u2e80-\u9fff\uf900-\ufaff\ufe30-\ufe4f\uff00-\uffef\u3000-\u303f]"
+
+function check_no_cjk_in_math(path::AbstractString)
+	bad = Tuple{Int, String}[]
+	for (i, line) in enumerate(eachline(path))
+		s = strip(line)
+		(startswith(s, "#") || occursin("#", line)) && continue          # 注释行豁免
+		for m in eachmatch(r"\\\((.*?)\\\)|\\\[(.*?)\\\]", line)
+			body = string(something(m.captures...))
+			occursin(CJK_RE, body) || continue
+			push!(bad, (i, body[1:min(48, length(body))]))
+		end
+	end
+	isempty(bad) && return nothing
+	for (i, b) in bad
+		println("  line ", i, " -> 数学里有中文：", b)
+	end
+	error("数学定界符 \\(...\\) / \\[...\\] 内不允许中日韩字符（MathJax 无 CJK 字形，会静默缺字）：",
+		basename(path), " 有 ", length(bad), " 处")
+end
+
 function run_notebook(path)
 	println("=== ", basename(path))
+	check_no_raw_frames(path)
+	check_no_cjk_in_math(path)
 	mod = Module(Symbol("NB_", replace(basename(path), r"[^A-Za-z0-9_]" => "_")))
 	for src in SRCS   # 预载物理/渲染模块（cell 1 的 include 由自测代劳）
 		Base.include_string(mod, read(src, String), basename(src))
@@ -20,8 +117,14 @@ function run_notebook(path)
 	include_string(mod, """
 	const EJ = 20.0; const EC = 0.30; const ng = 0.0
 	const detune = 0.0; const amp = 0.05; const sigma = 10.0; const Tns = 60.0
-	const E_Cr = 0.06; const om_r = 8.5; const kappa = 0.01; const nshots = 200
+	const E_Cr = 0.06; const om_r = 8.5; const kappa = 0.01; const nshots = 200; const beta = 0.0
 	const cmp2 = false
+	const T1us = 30.0; const Tphius = 50.0; const sigmad = 20.0; const deltak = 30.0
+	const nmem = 16; const taumax = 10.0
+	const g_c = 0.05; const det2 = 0.03; const T1q = 20.0; const taumax2 = 40.0
+	const phi_ext = 0.0; const EJ0 = 20.0; const D_slider = 0.1
+	const ratio2 = 1.20; const amp_phi = 0.073; const t_pulse = 37.5
+	const shape_sel = "平滑沿"; const amp_fine = 0.073; const len_fine = 37.5
 	""", "defaults")
 	ok = skipped = 0
 	for (i, chunk) in enumerate(chunks[2:end])
@@ -35,8 +138,9 @@ function run_notebook(path)
 			continue
 		end
 		try
-			include_string(mod, code, "cell$i")
+			val = include_string(mod, code, "cell$i")
 			ok += 1
+			check_html_tuple(mod, val, basename(path), i)
 		catch e
 			println("cell $i: FAIL -> ", e)
 			error("notebook 自测失败: ", path)

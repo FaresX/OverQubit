@@ -1,0 +1,8 @@
+﻿# —— 本地预览产物（spike/preview_any.jl 生成，勿入库）——
+/spike/preview_*.html
+
+# —— Julia ——
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+Manifest.toml
