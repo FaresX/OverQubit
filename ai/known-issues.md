@@ -5,7 +5,7 @@
 
 ## 1. CZ 相关内容已收尾（2026-09-27 第 5 轮关闭）
 
-第 4 轮记录的两个 `scripts/validate_cz.jl` 问题已修，现 28/28 PASS：
+第 4 轮记录的两个 `scripts/validate_cz.jl`（第 6 轮起迁入 `test/test_cz.jl`）问题已修，现全部 PASS：
 
 - ~~`FAIL g_c = 0 时无泄漏`~~ → 阈值放到 `< 1e-9`（分段传播累计误差 ~1.7e-11，物理上本来就是 0）。
 - ~~`ERROR DimensionMismatch 9 vs 6`~~ → 谱学交叉检查里多写的 `sqrt.` 已去掉（`TQ.H` 是 rad/ns，
@@ -17,7 +17,7 @@
 ## 2. `spike/check_frames.jl` 的 exit code 为 1（检查本身 PASS）
 
 - 现状：脚本末尾 `allok` 在顶层 `for` 循环里赋值，触发 Julia 1.12 软作用域告警，被当成新局部变量，
-  进程以 exit code 1 结束；但 `FRAME-TRACES CHECK PASS` 正常输出，判断依据是这行输出而非退出码。
+  进程以 exit code 1 结束（第 6 轮重构后仍在）；但 `FRAME-TRACES CHECK PASS` 正常输出，判断依据是这行输出而非退出码。
 - 线索：把循环里的 `allok = ...` 改成 `global allok`，或把收尾逻辑包进函数。
 
 ## 3. 全部变更尚未 commit

@@ -6,8 +6,8 @@
 ## 1. 生成静态预览页（把 notebook 的输出拼成一个 HTML）
 
 ```powershell
-julia spike/preview_any.jl              # 默认 flux_tuning
-$env:NB = "two_qubit"; julia spike/preview_any.jl   # 指定 notebook
+julia --project=. spike/preview_any.jl              # 默认 flux_tuning
+$env:NB = "two_qubit"; julia --project=. spike/preview_any.jl   # 指定 notebook
 ```
 
 产物 `spike/preview_<name>.html`：每个 cell 的 HTML 输出依次排在 `.cell` 容器里，
@@ -51,7 +51,7 @@ plotly 走 CDN + 懒加载器（`window.__oqPlotly`）。⚠️ 它**跳过 @bin
 ## 3. 断言二：动画帧索引是否指向专用 trace（Julia 侧，无需浏览器）
 
 ```powershell
-julia spike/check_frames.jl       # → FRAME-TRACES CHECK PASS
+julia --project=. spike/check_frames.jl   # → FRAME-TRACES CHECK PASS
 ```
 
 原理：逐 cell 求值 notebook，抓模块里的 `frames` 与 `tr`/`traces`，

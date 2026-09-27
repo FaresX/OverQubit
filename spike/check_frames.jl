@@ -56,10 +56,8 @@ end
 function snapshots(path)
     nb = splitext(basename(path))[1]
     mod = Module(Symbol("CHK_", replace(nb, r"[^A-Za-z0-9_]" => "_")))
-    for s in ("OverQubit.jl", "OverQubitViz.jl")
-        Base.include_string(mod, read(joinpath(@__DIR__, "..", "src", s), String), s)
-    end
-    Base.eval(mod, Meta.parse("using .OverQubit, .OverQubitViz, PlutoUI, PlotlyBase, Statistics, Random, HypertextLiteral, Markdown"))
+    Base.include(mod, joinpath(@__DIR__, "..", "src", "OverQubit.jl"))
+    Base.eval(mod, Meta.parse("using .OverQubit, PlutoUI, PlotlyBase, Statistics, Random, HypertextLiteral, Markdown"))
     text = read(path, String)
     chunks = split(text, "\n# ╔═╡")
     Base.include_string(mod, replace(chunks[1], r"\A### A Pluto\.jl notebook ###\n# v[\d.]+\n" => ""), "header")

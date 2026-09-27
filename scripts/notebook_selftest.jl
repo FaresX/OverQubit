@@ -2,10 +2,10 @@
 # 兼容 Pluto 规范化格式（文件头含 mock @bind、cell 头为 UUID、尾部 Cell order footer 表折叠状态）。
 # 注意 1：每个 notebook 用全新模块——重复 include 同一物理模块会让 using 绑定歧义。
 # 注意 2：运行时创建的 Module 不隐含 Base，且 include 不是 Base 导出名；
-#          因此自测预先 include_string 物理模块，并剥掉 cell 里的 include 行。
+#          因此自测预先用 Base.include(mod, SRC) 载入包模块，并剥掉 cell 里的 include 行。
 const CELL_RE = r"^\s*(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d+)\s*\n"
 const INCLUDE_RE = r"include\(joinpath\(@__DIR__, \"\.\.\", \"src\", \"[A-Za-z]+\.jl\"\)\)"
-const SRCS = [joinpath(@__DIR__, "..", "src", "OverQubit.jl"), joinpath(@__DIR__, "..", "src", "OverQubitViz.jl")]
+const SRC = joinpath(@__DIR__, "..", "src", "OverQubit.jl")   # 渲染层由包内部 include("viz/…") 自带
 
 # —— 回归检查：cell 返回值不能是「一串 HTMLStr」——
 # Pluto 的 mime 选择把 application/vnd.pluto.tree+object 排在 text/html 前面，
@@ -13,12 +13,18 @@ const SRCS = [joinpath(@__DIR__, "..", "src", "OverQubit.jl"), joinpath(@__DIR__
 # 返回 tuple 的 cell 会被 tree viewer 以 collapsed 的 flex-row 渲染：
 # 两张图挤在同一行各占一半宽度（图例折竖排、标题溢出）、还带 "1:" "2:" 序号。
 # 正确做法是 oq_stack(...) 包成单个 HTMLStr。详见 OverQubitViz.oq_stack 的文档字符串。
-# 解析 HTMLStr 类型：cell 是在运行时 Module 里 include 的，类型住在 mod.OverQubitViz.HTMLStr。
+# 解析 HTMLStr 类型：cell 是在运行时 Module 里 include 的，
+# 类型住在 mod.OverQubit.OverQubitViz.HTMLStr（using 转出口后 mod.OverQubit.HTMLStr 也解析得到）。
 function _htmlstr_type(mod)
-	for m in (mod, Base.invokelatest(() -> try getfield(mod, :OverQubitViz) catch; nothing end))
+	for m in (mod, Base.invokelatest(() -> try getfield(mod, :OverQubit) catch; nothing end))
 		m === nothing && continue
 		T = Base.invokelatest(() -> try getfield(m, :HTMLStr) catch; nothing end)
 		T isa Type && return T
+		viz = Base.invokelatest(() -> try getfield(m, :OverQubitViz) catch; nothing end)
+		if viz isa Module
+			T = Base.invokelatest(() -> try getfield(viz, :HTMLStr) catch; nothing end)
+			T isa Type && return T
+		end
 	end
 	nothing
 end
@@ -107,9 +113,7 @@ function run_notebook(path)
 	check_no_raw_frames(path)
 	check_no_cjk_in_math(path)
 	mod = Module(Symbol("NB_", replace(basename(path), r"[^A-Za-z0-9_]" => "_")))
-	for src in SRCS   # 预载物理/渲染模块（cell 1 的 include 由自测代劳）
-		Base.include_string(mod, read(src, String), basename(src))
-	end
+	Base.include(mod, SRC)   # 预载包模块（含 viz 子模块；cell 里的 include 行由 INCLUDE_RE 剥掉）
 	text = read(path, String)
 	chunks = split(text, "\n# ╔═╡")
 	header = replace(chunks[1], r"\A### A Pluto\.jl notebook ###\n# v[\d.]+\n" => "")

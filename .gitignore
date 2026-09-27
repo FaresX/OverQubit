@@ -1,4 +1,4 @@
-﻿# —— 本地预览产物（spike/preview_any.jl 生成，勿入库）——
+# —— 本地预览产物（spike/preview_any.jl 生成，勿入库）——
 /spike/preview_*.html
 
 # —— Julia ——
@@ -6,3 +6,9 @@
 *.jl.*.cov
 *.jl.mem
 Manifest.toml
+coverage/
+Coverage.*
+
+# —— 系统 ——
+.DS_Store
+Thumbs.db

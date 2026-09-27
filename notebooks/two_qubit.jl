@@ -7,8 +7,7 @@ using Markdown
 begin
 	using PlutoUI, PlotlyBase, Statistics, HypertextLiteral
 	include(joinpath(@__DIR__, "..", "src", "OverQubit.jl"))
-	include(joinpath(@__DIR__, "..", "src", "OverQubitViz.jl"))
-	using .OverQubit, .OverQubitViz
+	using .OverQubit
 	setup_page()
 end
 

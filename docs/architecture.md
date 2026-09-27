@@ -481,3 +481,64 @@ Pluto 前端**只对 `class="tex"` 的元素**跑 MathJax（`CellOutput.js` 的
 
 9 个 notebook 的推导链已全部迁移（187 处 `.tex`）。
 `notebook_selftest.jl` 的 `check_no_cjk_in_math` 负责防回归。
+
+## 17. 标准化 Julia 包结构（2026-09-27）
+
+仓库重构为**标准 Julia 包形式**（`Project.toml` + `src/` + `test/`），分层铁律不变。
+
+### 17.1 新目录结构
+
+```
+OverQubit/
+├── Project.toml            # name=OverQubit, uuid=db85b13b-…；deps：LinearAlgebra / PlotlyBase / PlutoUI / HypertextLiteral
+├── src/
+│   ├── OverQubit.jl        # 包入口：include 各文件 + 集中 export（物理 5 组 + 渲染层转出口）
+│   ├── transmon.jl         # Transmon / 电荷基能谱 / charge_matrix_element / SQUID 磁通调谐
+│   ├── readout.jl          # jc_chi / dispersive_params / s21 / steady_amplitude
+│   ├── dynamics.jl         # driven_basis / evolve_density(_iq) / dissipator_super / SequenceEngine / evolve_segments
+│   ├── two_qubit.jl        # coupled_hamiltonian / TwoQubit / exchange_rate / zz_rate / evolve_two_qubit
+│   ├── cz.jl               # CZPair / cz_* 全家（磁通脉冲引擎 + 校准可观测量）
+│   └── viz/OverQubitViz.jl # 渲染层（子模块 OverQubit.OverQubitViz；自包含，只依赖 PlotlyBase）
+├── test/                   # runtests.jl + 按 src 文件一一对应的测试 + golden_transmon.jl（原 data/）
+├── notebooks/              # 9 个 Pluto 演示（产品本体，include 相对路径加载包）
+├── scripts/                # notebook_selftest.jl / preview_mvp0.jl / generate_golden.py
+└── spike/                  # preview_any.jl / check_frames.jl（无头验证脚手架）
+```
+
+关键决策：
+
+- **渲染层作为子模块**：`OverQubitViz` 从 src 根移到 `src/viz/`，由包入口 include 进来，
+  `using .OverQubitViz` 后把渲染 API 一并 `export`——notebook 只需 `using .OverQubit` 一条。
+  依赖代价是包 deps 增加 `PlotlyBase`（渲染层随包加载）；物理层"只依赖 LinearAlgebra"
+  的铁律改述为"物理层文件不 import 渲染符号"（模块边界仍是硬边界）。
+- **单包而非 workspace**：渲染层与物理层同包。两包 workspace（`packages/…`）更"纯"但会把
+  notebook 的 include 路径和 Pluto 环境搞复杂，演示器规模不值得。
+- **notebook 保持 include 相对路径**（不改为 `using OverQubit`）：Pluto notebook 环境独立，
+  自包含的相对 include 不需要激活包环境，维持既有工作流。cell 加载代码从"两个 include +
+  两个 using"缩为"一个 include + 一个 using"。
+- **黄金向量数据移到 `test/`**（原 `data/golden_transmon.jl`），`generate_golden.py` 输出路径同步。
+
+### 17.2 验证链迁移（scripts/validate*.jl → test/）
+
+四个 validate 脚本的物理断言**全部无损迁移**为 `@testset`：
+
+| 旧脚本 | 新测试文件 | 内容 |
+| --- | --- | --- |
+| `scripts/validate.jl` | `test/test_transmon.jl` | scqubits 黄金向量 8 点 + SQUID 磁通调谐 |
+| `scripts/validate_dynamics.jl` | `test/test_readout.jl` + `test/test_dynamics.jl` | χ≈g²/Δ、S21；Rabi/泄漏/Bloch |
+| `scripts/validate_new.jl` | `test/test_transmon.jl`（磁通）+ `test/test_dynamics.jl`（序列引擎）+ `test/test_two_qubit.jl` | 磁通调谐、π 脉冲/T1/T2/Ramsey/回波、iSWAP/ZZ |
+| `scripts/validate_cz.jl` | `test/test_cz.jl` | CZ 引擎 6 组 32 项 |
+
+运行方式：`julia --project=. -e 'using Pkg; Pkg.test()'`（101 项，约 4 分钟）；
+单跑一组：`julia --project=. test/test_cz.jl`。**旧脚本已删除**，checklists 已同步。
+
+顺带修掉一个 flaky 断言：iSWAP 动力学对比里 `argmax` 取峰位——sin² 的峰恰好是采样点，
+浮点噪声会让 argmax 随机落到任意一个峰（相差整数个周期）。改为"前 1/3 时窗取 argmax"
+（恰含第一个峰）。
+
+### 17.3 无头工具的模块加载更新
+
+`notebook_selftest.jl` / `spike/preview_any.jl` / `spike/check_frames.jl` 原先用
+`include_string` 预载两个 src 文件；现在改为 `Base.include(mod, src/OverQubit.jl)`
+（能正确解析包内部的 `include("viz/…")` 相对路径），`using .OverQubit, .OverQubitViz`
+相应缩为 `using .OverQubit`。所有脚本一律 `julia --project=. ` 运行（老规矩）。

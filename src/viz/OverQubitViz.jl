@@ -1,5 +1,7 @@
 # OverQubitViz：渲染层共享工具（视觉主题、布局、Plotly 动画 HTML、可展开推导链）。
 # 不含物理——只把数据变成好看的 Web 界面。notebook 与预览共用。
+# 作为 `OverQubit.OverQubitViz` 子模块加载（src/OverQubit.jl include + using 转出口）；
+# 本文件自包含（只依赖 PlotlyBase），必要时也可单独 include 使用。
 module OverQubitViz
 
 using PlotlyBase

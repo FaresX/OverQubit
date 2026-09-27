@@ -1,7 +1,7 @@
 # 无头预览：把指定 notebook 的所有展示 cell 渲染成单页 HTML（调试布局用）。
+# 用法：julia --project=. spike/preview_any.jl（可配 $env:NB = "<notebook名>"）
 include(joinpath(@__DIR__, "..", "src", "OverQubit.jl"))
-include(joinpath(@__DIR__, "..", "src", "OverQubitViz.jl"))
-using .OverQubit, .OverQubitViz
+using .OverQubit
 
 const NB = get(ENV, "NB", "flux_tuning")
 const OUT = joinpath(@__DIR__, "..", "spike", "preview_$(NB).html")
@@ -22,9 +22,8 @@ const phi_ext = 0.25; const EJ0 = 20.0; const D_slider = 0.1
 """
 
 mod = Module(Symbol("PREV_", NB))
-Base.include_string(mod, read(joinpath(@__DIR__, "..", "src", "OverQubit.jl"), String), "OverQubit.jl")
-Base.include_string(mod, read(joinpath(@__DIR__, "..", "src", "OverQubitViz.jl"), String), "OverQubitViz.jl")
-Base.eval(mod, Meta.parse("using .OverQubit, .OverQubitViz, PlutoUI, PlotlyBase, Statistics, Random, HypertextLiteral, Markdown"))
+Base.include(mod, joinpath(@__DIR__, "..", "src", "OverQubit.jl"))
+Base.eval(mod, Meta.parse("using .OverQubit, PlutoUI, PlotlyBase, Statistics, Random, HypertextLiteral, Markdown"))
 
 path = joinpath(@__DIR__, "..", "notebooks", "$(NB).jl")
 text = read(path, String)

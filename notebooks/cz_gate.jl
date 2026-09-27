@@ -7,8 +7,7 @@ using Markdown
 begin
 	using PlutoUI, PlotlyBase, Statistics, HypertextLiteral
 	include(joinpath(@__DIR__, "..", "src", "OverQubit.jl"))
-	include(joinpath(@__DIR__, "..", "src", "OverQubitViz.jl"))
-	using .OverQubit, .OverQubitViz
+	using .OverQubit
 	setup_page()
 end
 
@@ -46,7 +45,7 @@ concept_cards([
 ])
 
 # ╔═╡ c2000001-0000-4000-8000-000000000006
-callout("本页沿用 ⑤ 的电容耦合模型，但 qubit2 换成 SQUID：<span class=\"oq-kbd\">cz_pair</span> 在<b>固定参考基</b>（Φ=0 的两个本征态）里改写 Ĥ₂(Φ)，Φ=0 时与 <span class=\"oq-kbd\">TwoQubit</span> 的哈密顿量逐项一致（误差 &lt; 1e-12）。能级取 3 个（|2⟩ 是主角，nlev=3 是 CZ 的硬性要求）。脉冲按<b>分段常值</b>推进，每步一个矩阵指数；时间步长收敛性由 <span class=\"oq-kbd\">scripts/validate_cz.jl</span> 回归。",
+callout("本页沿用 ⑤ 的电容耦合模型，但 qubit2 换成 SQUID：<span class=\"oq-kbd\">cz_pair</span> 在<b>固定参考基</b>（Φ=0 的两个本征态）里改写 Ĥ₂(Φ)，Φ=0 时与 <span class=\"oq-kbd\">TwoQubit</span> 的哈密顿量逐项一致（误差 &lt; 1e-12）。能级取 3 个（|2⟩ 是主角，nlev=3 是 CZ 的硬性要求）。脉冲按<b>分段常值</b>推进，每步一个矩阵指数；时间步长收敛性由 <span class=\"oq-kbd\">test/test_cz.jl</span> 回归。",
 	tone="info", title="阅读前提")
 
 # ╔═╡ c2000001-0000-4000-8000-000000000007

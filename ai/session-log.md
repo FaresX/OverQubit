@@ -234,3 +234,49 @@ MathJax 无 CJK 字形（`\text{中文}` 静默缺字）、`derivation` 步骤�
 **遗留**
 `concept_cards` / `tryout` / `callout` 里还剩描述性文字公式（不影响阅读）；`validate_cz.jl` 的
 两个 FAIL/ERROR 见 `known-issues.md`。
+
+---
+
+## 2026-09-27（第 7 轮）重构为标准 Julia 包结构
+
+**触发**：用户要求"按照 Julia 项目的一般形式重构项目"。
+
+**做了什么**
+- 新增 `Project.toml`（name=OverQubit，uuid `db85b13b-cf81-4815-8bd1-109f4bf78330`；
+  deps：LinearAlgebra / PlotlyBase / PlutoUI / HypertextLiteral；compat + test target）。
+- `src/OverQubit.jl`（1076 行单文件）拆为 `transmon.jl` / `readout.jl` / `dynamics.jl` /
+  `two_qubit.jl` / `cz.jl` 五个文件，include 顺序即依赖顺序；**export 全部集中到入口文件**。
+- `src/OverQubitViz.jl` → `src/viz/OverQubitViz.jl`，作为子模块 `OverQubit.OverQubitViz`
+  载入，渲染 API 经 `using .OverQubitViz` + `export` 从包转出——notebook 一条 `using .OverQubit`
+  拿到全部物理 + 渲染名字。
+- 新建 `test/`：`runtests.jl` + 按 src 文件一一对应的 5 个测试文件；四个 `scripts/validate*.jl`
+  的物理断言**无损迁移**（`check(name, cond)` → `@testset`），黄金向量数据从 `data/` 移到
+  `test/golden_transmon.jl`，`generate_golden.py` 输出路径同步；旧脚本删除。
+- 9 个 notebook 的加载块从"两个 include + 两个 using"缩为"一个 include + 一个 using"。
+- 无头工具改用 `Base.include(mod, SRC)` 预载包模块（`include_string` 解析不了包内部的
+  `include("viz/…")` 相对路径）：`notebook_selftest.jl`、`spike/preview_any.jl`、`spike/check_frames.jl`。
+- 文档：README.md（新建）、`.gitignore` 补全、architecture.md §17（本次重构的唯一记录）、
+  checklists.md 的验证命令（validate 四条链 → `Pkg.test()`）、workflow.md / known-issues.md 路径同步。
+
+**关键决策**
+- **单包 + 渲染层做子模块**，不做两包 workspace：演示器规模不值得两个 Project.toml 的仪式感；
+  分层铁律改述为"物理层文件不 import 渲染符号"（模块边界不变）。代价是包 deps 里多了 PlotlyBase。
+- **notebook 维持 include 相对路径**，不改为 `using OverQubit`：Pluto notebook 环境独立，
+  自包含 include 不要求激活包环境，老工作流零破坏。
+- **测试环境注意**：`Pkg.test()` 的临时环境只认 `[targets]` 声明的包——`Test` 和 `Statistics`
+  都要写进 `[extras]`/`[targets]`，否则测试文件里 `using Statistics` 直接挂（本轮踩到）。
+
+**验证**
+- `julia --project=. -e 'using Pkg; Pkg.test()'` → **101/101 PASS**（约 4 分钟）。
+- `scripts/notebook_selftest.jl` → `NOTEBOOK SELF-TEST PASS`（9 个 notebook）。
+- `spike/check_frames.jl` → `FRAME-TRACES CHECK PASS`；`spike/preview_any.jl` 出页正常。
+- 导出名 89 个全部 `isdefined`；`using OverQubit` 即装即用。
+
+**顺带修掉的 flaky 断言**
+iSWAP 动力学对比的 `argmax` 峰位检查（原 validate_new §3）：sin² 的峰恰好落在采样点上，
+浮点噪声让 `argmax` 随机落到任意一个峰（相差整数个周期，本轮实测差 2 个周期 11.6 ns）。
+改为"前 1/3 时窗取 argmax"（恰含第一个峰），断言才稳定。
+
+**遗留**
+- 全部变更未 commit（见 known-issues §3）。
+- `scripts/preview_mvp0.jl` 还是旧式独立脚本（自带色板常量，未走渲染层），功能正常，暂不迁移。

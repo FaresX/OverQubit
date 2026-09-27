@@ -16,21 +16,19 @@
 - [ ] `derivation` 步骤是**三元组** `(操作, 公式, 说明)`（少一个 → BoundsError）
 - [ ] 跑 `julia --project=. scripts/notebook_selftest.jl` → 必须 `NOTEBOOK SELF-TEST PASS`
 
-## B. 改动物理层（`src/OverQubit.jl`）
+## B. 改动物理层（`src/transmon.jl` 等，入口 `src/OverQubit.jl`）
 
-- [ ] 只依赖 LinearAlgebra；渲染一律放 `OverQubitViz.jl`（architecture §9 分层铁律）
+- [ ] 物理层文件只依赖 LinearAlgebra、不 import 渲染符号；渲染一律放 `src/viz/OverQubitViz.jl`（architecture §9/§17 分层铁律）
 - [ ] 单位口径：频率 GHz 入口 ×2π；衰减率 ns⁻¹ 不 ×2π（lessons 4）
-- [ ] 新函数写 docstring + 加 `export`；约定写进注释防误用
-- [ ] 跑四条链（**都要带 `--project=.`**，见 lessons 5.1b）：
+- [ ] 新函数写 docstring + 在入口 `src/OverQubit.jl` 加 `export`；约定写进注释防误用
+- [ ] 跑测试套件（**都要带 `--project=.`**，见 lessons 5.1b；validate 脚本已迁入 test/，见 architecture §17.2）：
   ```powershell
-  julia --project=. scripts/validate.jl           # 黄金向量 8 点（4.6e-13）
-  julia --project=. scripts/validate_dynamics.jl  # Rabi/泄漏/χ/S21
-  julia --project=. scripts/validate_new.jl       # 新引擎 30 项
-  julia --project=. scripts/notebook_selftest.jl  # 全部 notebook
-  julia --project=. scripts/validate_cz.jl        # CZ 引擎（若动过 cz_*）
+  julia --project=. -e 'using Pkg; Pkg.test()'    # 全部 101 项物理回归（约 4 分钟）
+  julia --project=. test/test_cz.jl               # 或单跑一组（test_transmon/readout/dynamics/two_qubit/cz）
+  julia --project=. scripts/notebook_selftest.jl  # 全部 notebook 逐 cell 求值 + 排版回归
   ```
 
-## C. 改渲染层（`src/OverQubitViz.jl`）
+## C. 改渲染层（`src/viz/OverQubitViz.jl`）
 
 - [ ] 组件返回**单个 HTMLStr**；多块用 `oq_stack`
 - [ ] 所有样式内联（不依赖 Pluto 全局 CSS）
@@ -40,9 +38,9 @@
 
 ## D. 提交前（全部改动）
 
-- [ ] 四条验证链全 PASS（`--project=.`，见 lessons 5.1b）
+- [ ] `Pkg.test()` 与 `scripts/notebook_selftest.jl` 全 PASS（`--project=.`，见 lessons 5.1b）
 - [ ] `julia --project=. spike/check_frames.jl` → `FRAME-TRACES CHECK PASS`（动过动画时）
-- [ ] `NB=<name> julia spike/preview_any.jl` 出静态页，肉眼过一遍
+- [ ] `$env:NB = "<name>"`; `julia --project=. spike/preview_any.jl` 出静态页，肉眼过一遍
 - [ ] `git status` 确认没有把 `spike/*.html`、临时脚本带进提交
 - [ ] 有新的"坑"→ 更新 `ai/lessons.md`；有结构性改动 → 更新 `docs/architecture.md`
 

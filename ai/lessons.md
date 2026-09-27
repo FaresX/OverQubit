@@ -146,7 +146,7 @@
   `Urel = U·U_ref†` 的对角元：`⟨c|U U_ref†|c⟩ = Σ_j U[c,j]·conj(U_ref[c,j])`。
   差分量级只剩 MHz~百 MHz，每步变化 ≪ π，去包裹稳定；这正是实验上「spectator 参考序列」做的事。
 - ⚠️ **别写成** `U[c,c]·conj(Uref[c,c])`：脉冲期间 `U_ref` 在乘积基里并不对角，漏掉 `Σ_j` 交叉项相位就错。
-- **防回归**：`scripts/validate_cz.jl` 的 `idle 条件相位速率 = −2π·(谱学 4 态组合)` 与
+- **防回归**：`test/test_cz.jl` 的 `idle 条件相位速率 = −2π·(谱学 4 态组合)` 与
   `去包裹相位与末态 Urel 自洽（mod 2π）` 两项直接卡这条；跑偏就 FAIL。
 
 ### 4.2 用 `Urel` 之后还要「虚拟 Z 校正」，否则 P₁ / F_proc 全是噪声
@@ -190,7 +190,7 @@
 - **根因**：不带 `--project` 时用默认环境（GlobalEnv/共享 depot），包里符号解析与预期不一致；
   本项目所有脚本头部都注明 `julia --project=. scripts/xxx.jl`。
 - **对策**：**一律带 `--project=.`**。见到诡异 `UndefVarError` 先确认命令带没带它。
-- **同类**：`julia scripts/validate_cz.jl`（假 `I` 报错）vs `julia --project=. scripts/validate_cz.jl`（真 FAIL 才暴露）。
+- **同类**：`julia test/test_cz.jl`（假 `I` 报错）vs `julia --project=. test/test_cz.jl`（真 FAIL 才暴露）。
 
 ### 5.2 edit 工具对 tab 缩进敏感
 - **症状**：`Could not find oldString`，肉眼看着一模一样。
