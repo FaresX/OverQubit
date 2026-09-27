@@ -22,7 +22,19 @@ begin
 	include(joinpath(@__DIR__, "..", "src", "OverQubit.jl"))
 	include(joinpath(@__DIR__, "..", "src", "OverQubitViz.jl"))
 	using .OverQubit, .OverQubitViz
+	setup_page()
 end
+
+# ╔═╡ b0000000-0000-4000-8000-000000001001
+lesson_nav([
+	("①", "transmon 能级与量子化", "done"),
+	("②", "单比特门与 Rabi", "done"),
+	("③", "DRAG 泄漏压制", "done"),
+	("④", "色散读取 S21", "current"),
+	("⑤", "两比特耦合与 iSWAP", "todo"),
+	("⑥", "磁通调谐与能级扇形图", "todo"),
+	("⑦", "T1 / T2 / Ramsey", "todo"),
+])
 
 # ╔═╡ b0000000-0000-4000-8000-000000000002
 @htl("""
@@ -126,9 +138,9 @@ let
 	push!(tr2, PlotlyBase.scatter(x=ws, y=angle.(s0) .* 180 / π; mode="lines", name="|0⟩ 相位", line=attr(color=PAL[1], width=2)))
 	push!(tr2, PlotlyBase.scatter(x=ws, y=angle.(s1) .* 180 / π; mode="lines", name="|1⟩ 相位", line=attr(color=PAL[2], width=2)))
 	p2 = PlotlyBase.Plot(tr2,
-		layout_base(height=400, title="S21 相位：同样携带状态信息（幅度分辨不开时相位补位）",
+		layout_base(height=400, title="S21 相位：同样携带状态信息",
 			xtitle="微波频率 (GHz)", ytitle="arg S21 (°)"))
-	plotly_html("oq_s21a", p1; height=490), plotly_html("oq_s21b", p2; height=410)
+	oq_stack(plotly_html("oq_s21a", p1; height=490), plotly_html("oq_s21b", p2; height=410))
 end
 
 # ╔═╡ b0000000-0000-4000-8000-00000000000e
@@ -142,13 +154,12 @@ begin
 		xs = vcat([s[1] for s in shots0[1:i2]], [s[1] for s in shots1[1:i2]])
 		ys = vcat([s[2] for s in shots0[1:i2]], [s[2] for s in shots1[1:i2]])
 		clr = vcat(fill("#4C6FFF", i2), fill("#7B61FF", i2))
-		push!(frames, frame(name=string(k), data=[
-			PlotlyBase.scattergl(x=xs, y=ys; mode="markers", showlegend=false, hoverinfo="skip",
-				marker=attr(size=4, color=clr, opacity=0.55)),
-		]))
+		push!(frames, anim_frame(0, string(k), PlotlyBase.scattergl(x=xs, y=ys; mode="markers",
+			showlegend=false, hoverinfo="skip", marker=attr(size=4, color=clr, opacity=0.55))))
 	end
 	tr = PlotlyBase.GenericTrace[]
 	push!(tr, PlotlyBase.scattergl(x=Float64[], y=Float64[]; mode="markers", showlegend=false))
+	#  ↑ trace 0 就是被动画更新的散点云（初始为空）
 	circle_th = range(0, 2π; length=80)
 	push!(tr, PlotlyBase.scatter(x=p0 .+ noise .* cos.(circle_th), y=q0 .+ noise .* sin.(circle_th);
 		mode="lines", line=attr(color=PAL[1], width=2), name="|0⟩ 噪声圆"))
@@ -167,14 +178,17 @@ end
 # ╔═╡ b0000000-0000-4000-8000-00000000000f
 derivation("⑤ 推导溯源：从传输线到「看见」量子态",
 [
-("定义", "经典 RLC：传输振幅 ∝ 1/(i(ω−ω<sub>r</sub>) + κ/2)<br>→ S21(ω) = κ<sub>e</sub>/(i(ω−ω<sub>eff</sub>) + κ/2)", "hanger 谐振子的洛伦兹响应：κ 是总衰减率，κ<sub>e</sub> 是耦合到传输线的部分。"),
-("定义", "量子化谐振子：H<sub>r</sub> = ω<sub>r</sub>(a†a + 1/2)，V ∝ φ<sub>zpf,r</sub>(a + a†)，φ<sub>zpf,r</sub> = (2E<sub>Cr</sub>/ω<sub>r</sub>)<sup>1/4</sup>", "LC 电路 → 光子数阶梯。φ<sub>zpf,r</sub> 是相位零点涨落（与 transmon 的 φ<sub>zpf</sub> 同源）。"),
-("定义", "input-output：ȧ = −(iω<sub>r</sub> + κ/2)a − √κ<sub>e</sub>a<sub>in</sub><br>稳态解 → S21(ω) = κ<sub>e</sub>/(i(ω−ω<sub>r</sub>) + κ/2)（与第 1 步同式）", "腔场由入射微波受迫驱动；稳态振幅 A(ω) = ϵ/(iΔ+κ/2) 就是 IQ 平面上的点。"),
-("代入", "电压耦合：qubit 的 n̂ 与腔的 φ 相乘<br>g = E<sub>C</sub>·|⟨0|n̂|1⟩|·φ<sub>zpf,r</sub>", "g 的微观来源——电荷矩阵元 × 腔零点涨落。读数卡显示它的数值（~百 MHz 量级）。"),
-("定义", "Jaynes–Cummings：H = ω<sub>r</sub>a†a + (ω<sub>01</sub>/2)σ<sub>z</sub> + g(aσ₊ + a†σ₋)", "qubit 与腔交换一个光子的全耦合模型（含 |2⟩ 修正后 χ 多一个 α/(Δ+α) 因子）。"),
-("近似", "色散变换（g ≪ |Δ| 下的 Schrieffer–Wolff）：<br>H<sub>disp</sub> = (ω<sub>r</sub> + χ σ<sub>z</sub>)a†a + …，χ = g²/Δ，Δ = ω<sub>01</sub> − ω<sub>r</sub>", "qubit 不交换能量（QND），只改腔频：|0⟩ → ω<sub>r</sub>−χ，|1⟩ → ω<sub>r</sub>+χ。数值上由 JC 对角化精确复现。"),
-("代入", "读取：S21(ω, |0⟩) 与 S21(ω, |1⟩) 两条曲线的峰位差 = 2χ", "把 qubit 态转成微波频率差——这就是「看见」的全部机制。橙色虚线是你选定的驱动频率。"),
-("整理", "SNR：n 次测量平均噪声 ∝ σ/√n → SNR = 2χ/σ · √(κT)", "积分时间 T 内的 shot 数 ∝ κT。IQ 动画的散点云收敛就是这个 √n 的可视化。"),
+("定义", texblock(raw"\text{经典 RLC：} \text{传输振幅} \propto \frac{1}{i(\omega-\omega_r)+\kappa/2} \;\;\Rightarrow\;\; S_{21}(\omega) = \frac{\kappa_e}{i(\omega-\omega_{\mathrm{eff}})+\kappa/2}"), "hanger 谐振子的洛伦兹响应：$(tex(raw"\kappa")) 是总衰减率，$(tex(raw"\kappa_e")) 是耦合到传输线的部分。"),
+("定义", texblock(raw"H_r = \omega_r\Big(a^\dagger a + \frac{1}{2}\Big), \qquad V \propto \varphi_{\mathrm{zpf},r}\,(a+a^\dagger)"), texblock(raw"\Rightarrow\quad \varphi_{\mathrm{zpf},r} = \Big(\frac{2E_{Cr}}{\omega_r}\Big)^{1/4}")),
+("定义", texblock(raw"\varphi_{\mathrm{zpf},r} = \Big(\frac{2E_{Cr}}{\omega_r}\Big)^{1/4}"), "LC 电路 → 光子数阶梯。$(tex(raw"\varphi_{\mathrm{zpf},r}")) 是相位零点涨落（与 transmon 的 $(tex(raw"\varphi_{\mathrm{zpf}}")) 同源）。"),
+("定义", texblock(raw"\dot a = -\Big(i\omega_r + \frac{\kappa}{2}\Big)a - \sqrt{\kappa_e}\,a_{\mathrm{in}}"), texblock(raw"\Rightarrow\quad S_{21}(\omega) = \frac{\kappa_e}{i(\omega-\omega_r)+\kappa/2}\quad(\text{与第 1 步同式})")),
+("定义", texblock(raw"A(\omega) = \frac{\epsilon}{i\Delta+\kappa/2}"), "腔场由入射微波受迫驱动；稳态振幅就是 IQ 平面上的点。"),
+("代入", texblock(raw"g = E_C\,\big|\langle 0|\hat n|1\rangle\big|\,\varphi_{\mathrm{zpf},r}"), "$(tex(raw"g")) 的微观来源——电荷矩阵元 × 腔零点涨落。读数卡显示它的数值（~百 MHz 量级）。"),
+("定义", texblock(raw"H = \omega_r\,a^\dagger a + \frac{\omega_{01}}{2}\sigma_z + g\,(a\sigma_+ + a^\dagger\sigma_-)"), "Jaynes–Cummings：qubit 与腔交换一个光子的全耦合模型（含 $(tex(raw"|2\rangle")) 修正后 $(tex(raw"\chi")) 多一个 $(tex(raw"\alpha/(\Delta+\alpha)")) 因子）。"),
+("近似", texblock(raw"g \ll |\Delta|,\ \ \text{Schrieffer–Wolff:}\qquad H_{\mathrm{disp}} = \big(\omega_r + \chi\,\sigma_z\big)a^\dagger a + \cdots"), texblock(raw"\chi = \frac{g^2}{\Delta}, \qquad \Delta = \omega_{01}-\omega_r")),
+("近似", texblock(raw"|0\rangle \to \omega_r - \chi, \qquad |1\rangle \to \omega_r + \chi"), "qubit 不交换能量（QND），只改腔频。数值上由 JC 对角化精确复现。"),
+("代入", texblock(raw"\text{读取：} S_{21}(\omega,|0\rangle)\ \text{与}\ S_{21}(\omega,|1\rangle)\ \text{峰位差} = 2\chi"), "把 qubit 态转成微波频率差——这就是「看见」的全部机制。橙色虚线是你选定的驱动频率。"),
+("整理", texblock(raw"\mathrm{SNR} = \frac{2\chi}{\sigma}\,\sqrt{\kappa T} \qquad (n \propto \kappa T)"), "积分时间 $(tex(raw"T")) 内的 shot 数 $(tex(raw"n\propto\kappa T"))。IQ 动画的散点云收敛就是这个 $(tex(raw"\sqrt n")) 的可视化。"),
 ];
 lead="每一步都可点开。对照读数卡：g、Δ、χ 都是电荷基 transmon + JC 对角化的真值。",
 result="χ = $(chi_s) MHz，曲线间隔 $(sep_s) MHz；g/Δ = $(ratio_s)——$(ratio < 0.1 ? "色散近似成立，两曲线关于 ω_r 对称" : "g/Δ 偏大，色散近似开始失效（把 ω_r 拖远试试）")。")
@@ -189,7 +203,20 @@ tryout([
  "散点云从「糊成一片」到「两个可分的团」——分离度（信号间距/噪声圆）随 √n 增长。这就是量子计算里「读出保真度 99%+」背后的全部统计学。"),
 ])
 
-# ╔═╡ b0000000-0000-4000-8000-000000000011
+# ╔═╡ b0000000-0000-4000-8000-000000001002
+quiz([
+	("色散读取中 qubit 处于 |1⟩ 时，读出腔的频率如何变化？",
+	 ["不变", "ω_r + χ", "ω_r − χ", "κ 变大"], 2,
+	 "色散哈密顿量 (ω_r + χσ_z)a†a：|0⟩ → ω_r − χ，|1⟩ → ω_r + χ，两条 S21 曲线相差 2χ。χ = g²/Δ。"),
+	("为什么说色散读取是「QND」的？",
+	 ["测量很快", "qubit 与腔失谐很大，不交换能量，只被推移频率", "腔里没有光子", "用了量子极限放大器"], 2,
+	 "g ≪ |Δ| 时耦合极弱，qubit 既不吸收也不放出光子，只把腔频推移 ±χ——读完不翻转状态（非破解性测量）。"),
+	("读出保真度主要靠什么提升？",
+	 ["增大 κ", "积分时间/平均次数（SNR ∝ √(κT)）", "减小 χ", "增大 g"], 2,
+	 "IQ 平面两个高斯团的分离度固定后，噪声圆半径 ∝ 1/√n，n = κT 为积分内平均光子数——这就是 99%+ 保真度背后的统计学。"),
+])
+
+# ╔═╡ b0000000-0000-4000-8000-000000000012
 @htl("""
 <div style="font-size:14.5px;color:#33384D;line-height:2.0;margin-top:6px">
 <p><b>为什么读得远。</b>腔的光子数 ~10⁴ 才能推动放大器，qubit 的 |0⟩/|1⟩ 只推腔频 ±χ（~MHz）。色散读取把「弱信号」转成「频率差」，这是它取代直接测量的核心原因。</p>
@@ -601,6 +628,7 @@ version = "17.7.0+0"
 
 # ╔═╡ Cell order:
 # ╟─b0000000-0000-4000-8000-000000000001
+# ╠═b0000000-0000-4000-8000-000000001001
 # ╠═b0000000-0000-4000-8000-000000000002
 # ╠═b0000000-0000-4000-8000-000000000003
 # ╟─b0000000-0000-4000-8000-000000000004
@@ -616,6 +644,7 @@ version = "17.7.0+0"
 # ╟─b0000000-0000-4000-8000-00000000000e
 # ╠═b0000000-0000-4000-8000-00000000000f
 # ╠═b0000000-0000-4000-8000-000000000010
-# ╠═b0000000-0000-4000-8000-000000000011
+# ╠═b0000000-0000-4000-8000-000000001002
+# ╠═b0000000-0000-4000-8000-000000000012
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
