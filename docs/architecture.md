@@ -2,6 +2,8 @@
 
 > 状态：已定稿（2026-09-22，与用户共同确认）。本文档是后续开发的唯一事实源；需求变更时先改本文档再改代码。
 > 上游依据：`docs/research/tools-survey.md`（工具选型）、`docs/research/dev-plan.md`（薄壳方案）。
+> **AI 协作记录在 `ai/` 目录**：踩坑与教训（`ai/lessons.md`）、未解决问题（`ai/known-issues.md`）、
+> 无头验证方法（`ai/workflow.md`）、会话日志（`ai/session-log.md`）。改代码前先扫一眼 `ai/checklists.md`。
 
 ## 1. 产品定义
 
@@ -165,12 +167,12 @@ GET  /api/demos/{id}/jobs/{job_id}/events → SSE：{progress} … {done, result
 | 2 | 色散读取 | resonator | sweep_chart, iq_plot, population_bars | S21(ω,s)→稳态→SNR | M1 |
 | 3 | 单比特门 | dynamics | bloch_player, population_bars, pulse_timeline | 量子化→两能级→RWA→Rabi→脉冲面积 | **M0** |
 | 4 | DRAG 校准 | dynamics | pulse_timeline, population_bars, bloch_player | 3 能级振幅→泄漏→DRAG 条件 | M2 |
-| 5 | 两比特门 | two_qubit | circuit_diagram, energy_diagram, bloch_player | 双比特 H→dressed 谱→条件相位 | M2 |
-| 6 | CZ 校准 | two_qubit | pulse_timeline, chevron_map(SSE), sweep_chart | 交换→chevron→相位校准 | M3 |
-| 7 | transmon 谱与电荷色散 | transmon | sweep_chart, energy_diagram | transmon H→电荷色散 | M4 |
-| 8 | T1/T2 退相干 | dynamics | bloch_player, sweep_chart, population_bars | Lindblad→T1/T2→自旋回波 | M4 |
-| 9 | Purcell 与测量反作用 | resonator + dynamics | sweep_chart, population_bars | input-out→Purcell 率→反作用 | M4 |
-| 10 | iSWAP 与 ZZ 串扰 | two_qubit | population_bars, energy_diagram, sweep_chart | 耦合振子→iSWAP 振荡→ZZ | M4 |
+| 5 | 两比特门（iSWAP/ZZ） | two_qubit | energy_diagram, sweep_chart, bloch_player×2 | 耦合→交换→ZZ→CZ 概念 | **M2 已完成（Pluto）** |
+| 6 | CZ 门实现原理 + 校准 | two_qubit | energy_diagram, sweep_chart, bloch_player×2, chevron_map | 交换→chevron→相位校准 | **已完成（Pluto，见 §16）** |
+| 7 | transmon 谱与电荷色散（含磁通调谐） | transmon + flux | wavefunction_plot, sweep_chart, energy_diagram | SQUID E<sub>J</sub>(Φ)→扇形→色散→甜点 | **M4 已完成（Pluto）** |
+| 8 | T1/T2 退相干（Ramsey/回波） | dynamics(序列) | bloch_player, sweep_chart, population_bars | Lindblad→T1/T2→T2*→自旋回波 | **M4 已完成（Pluto）** |
+| 9 | Purcell 与测量反作用 | resonator + dynamics | sweep_chart, population_bars | input-out→Purcell 率→反作用 | backlog |
+| 10 | iSWAP 与 ZZ 串扰 | two_qubit | population_bars, energy_diagram, sweep_chart | 耦合振子→iSWAP 振荡→ZZ | **M4 已完成（并入 #5，Pluto）** |
 
 ## 6. 里程碑
 
@@ -187,7 +189,7 @@ GET  /api/demos/{id}/jobs/{job_id}/events → SSE：{progress} … {done, result
 
 ### M1：S21 + 色散读取（谐振器引擎 + sweep_chart/iq_plot；导览脚本 2 个）
 ### M2：DRAG（β 扫描）+ 两比特门（双比特引擎 + energy_diagram）
-### M3：CZ 校准（SSE 异步 chevron 长任务 + 进度条）
+### M3：CZ 校准（chevron 二维扫描 + 相位校准）——**Pluto 形态已完成（§16）**；上网页版时补 SSE 异步 + 进度条（§4.2 契约不变）
 ### M4：公式推导库完善（共享库 + 逐步展开 + 符号定义）+ backlog 4 演示 + 打磨
 
 ## 7. 风险与对策
@@ -236,7 +238,246 @@ GET  /api/demos/{id}/jobs/{job_id}/events → SSE：{progress} … {done, result
 8. **代码单元格默认折叠**：notebook 文件尾部写 `Cell order:` footer，代码 cell 用 `# ╟─<uuid>`、展示 cell 用 `# ╠═<uuid>`（header 与 footer 的 uuid 一致；格式经 Pluto 源码核实）。
 9. **单位约定**：引擎内部时间域频率一律 **rad/ns**（入口 GHz×2π）；`Ω_R = amp·|⟨0|n̂|1⟩|`（不除 2，对照 lab 系实驱动）；χ 定义为 **g²/Δ**（|0⟩/|1⟩ 的 S21 曲线位于 ωr∓χ，曲线间隔为 2χ）；载波积分需乘 `1/sinc(ωd·dt/2)` 补偿。
 10. **自测每个 notebook 用全新模块**（`Module(:NB_x)` + `Base.include_string` 预载物理模块）——共用模块会因重复 include 导致 `using` 绑定歧义。
+11. **DRAG/双分量驱动**：`evolve_density_iq(t, ng, ωd, It::Function, Qt::Function, T)`，H(t) = H0 + [I·cos(ωd t) − Q·sin(ωd t)]·V；I/Q 均含 sinc 步内平均补偿。DRAG 数值标定点 β*≈4 ns（amp=0.25、σ=6 时），一阶理论 1/(2|α|)≈1.5 ns 仅作量级预告——β 以数值扫描为准（与实验流程一致）。
+12. **学习路径**：notebooks/ 下四个演示按 MVP-0（能级与量子化）→ 单比特门（驱动与 Rabi）→ DRAG（泄漏压制）→ 色散读取（S21 与测量）排序；每个含概念卡、滑杆交互、读数卡、可展开推导链、试试看任务。
+
+## 13. 学习内容扩展记录（2026-09-26）
+
+**新增三块引擎 + 三个演示 notebook + 一层共用 UI 组件**，全部沿用 §9 分层铁律（物理层纯 Julia、规格层数据化、渲染层只出 HTML）。
+
+### 13.1 新增物理引擎（`src/OverQubit.jl`，仍只依赖 LinearAlgebra）
+
+| 函数/类型 | 职责 | 演示 |
+| --- | --- | --- |
+| `squid_ej` / `transmon_at_flux` | SQUID 磁通调谐：E_J(Φ) = E_J(cos πΦ + D) | flux_tuning |
+| `TwoQubit` + `coupled_hamiltonian` / `coupled_spectrum` | 双 transmon 电容耦合（g_c·n̂₁n̂₂）：能级截断有效模型 + 全电荷基精确参照 | two_qubit |
+| `exchange_rate` / `zz_rate` / `bare_detuning` / `dressed_index` / `evolve_two_qubit` | iSWAP 交换率、always-on ZZ、dressed 态识别、两比特精确演化 | two_qubit |
+| `SequenceEngine` + `evolve_segments` / `rotating_drive` / `dissipator_super` | 旋转坐标系 + 多能级 RWA + 分段常值 Lindblad 演化（T1/T2/Ramsey/回波） | t1_t2 |
+
+关键约定（写进 docstring，避免与既有引擎混淆）：
+- 哈密顿量是**振荡频率**，入口传 GHz、内部 ×2π 折 rad/ns；**衰减率是指数速率**，直接传 ns⁻¹（再 ×2π 会把 T1 缩小 2π 倍）。
+- 1/Tφ = gammaphi、1/T2 = 1/(2T1) + 1/Tφ；两能级截断下 ZZ ≡ 0（非谐性是 ZZ 的必要条件，须 nlev≥3）。
+- 驱动 `phase` = 旋转轴在 xy 平面的方位角（0°=σ_x）；段内 H 恒定 → 传播子逐步离散无截断误差，自由段可用大采样间隔（成本降 1-2 个量级）。
+- dressed 态一律用**重叠最大**识别（`argmax(abs2.(row))`，勿用 `argmax(f, itr)`——后者返回元素而非索引）。
+
+### 13.2 新增演示 notebook
+
+| 文件 | 主题 | 组件 |
+| --- | --- | --- |
+| `notebooks/t1_t2.jl` | T1/T2/T2*/Ramsey/自旋回波；ensemble 准静态噪声平均 | 3 图 + Bloch 赤道面动画 + 8 步推导 + quiz |
+| `notebooks/two_qubit.jl` | iSWAP 振荡、能级扇形（avoided crossing）、always-on ZZ、CZ 概念 | 4 图 + 双 Bloch 球动画 + 8 步推导 + quiz |
+| `notebooks/flux_tuning.jl` | E_J(Φ)、能级扇形、电荷色散爆炸、甜点与 D 因子 | 2 图 + 势阱/经典小球动画 + 8 步推导 + quiz |
+
+每个页面统一为：banner → lesson_nav 学习路径 → concept_cards → ③ 调参 → 读数卡（stat_row/readout_table）→ 图 → ④ 试试看 → ⑤ 推导溯源 → ⑥ 自测（quiz）→ 小结。
+
+### 13.3 渲染层新增组件（`src/OverQubitViz.jl`）
+
+`setup_page()`（plotly.js 懒加载 + 全局样式——**Pluto 前端不预装 plotly.js，不调用则所有图静默失败**）、
+`lesson_nav`（导航条）、`stat_row` / `readout_table`（读数卡）、`callout`（info/tip/warn 提示框）、
+`quiz`（折叠答案解析）、`figure_note`、`divider`、`banner(..., icon=)`（7 种主题图标）、
+`layout_base(..., ytype=)`（对数轴）。
+
+### 13.4 验收链
+
+- `scripts/validate.jl`：scqubits 黄金向量 8 点回归，最大相对误差 4.6e-13（**未回归**）。
+- `scripts/validate_dynamics.jl`：Rabi/泄漏/JC 色散/S21 五项（**未回归**）。
+- `scripts/validate_new.jl`（新）：30 项，覆盖磁通调谐（含 Φ=0.5 纯电荷极限）、序列引擎（π 脉冲/Rabi/T1/Tφ/Ramsey 条纹/回波/采样无关性）、两比特（J=g_c n01²、全电荷基交叉验证、iSWAP 逐点对照解析式、ZZ≡0 判据）。
+- `scripts/notebook_selftest.jl`：7 个 notebook 无头求值全通过（默认滑块值常量化注入）。
+
+### 13.5 Pluto notebook 格式坑（本次踩到，务必遵守）
+
+1. **cell UUID 必须是合法十六进制且末段恰好 12 位**，否则 `notebook_selftest.jl` 的 `CELL_RE` 剥不掉头部 → 报 `UndefVarError(:<uuid>)`。
+2. `begin` 块内**不要写短式函数定义** `f(x) = ...`（Julia 1.12 会把参数当本地变量 → `UndefVarError(:x0)`）；用 `function ... end`。
+3. 顶部 `for` 循环里出现的 `x_` / 裸赋值在软作用域下可能被当局部变量 → 包进函数。
+4. `md"""` 长中文插值仍有静默错乱风险，沿用 `@htl` + `$(var)`（§11.6）。
+5. `attr()` 返回 Dict，不能事后 `lay.yaxis.type = ...`；需要新轴参数时往 `layout_base` 加关键字。
+6. **cell 末尾绝不要写 `html1, html2`（返回 Tuple）**——见 §14，这会让两张图只剩一半宽。
+
+## 14. Pluto 显示层坑：cell 返回 Tuple → 图被并排挤扁（2026-09-27）
+
+### 14.1 症状
+
+`flux_tuning` 页里扇形图只占半宽：Plotly 把图例**折成竖排**、标题溢出被裁、绘图区被挤成一条，
+旁边还挂着 "1:" "2:" 序号。
+
+### 14.2 根因（Pluto 的 MIME 选择，不是 plotly）
+
+`PlutoRunner/src/display/mime dance.jl` 的偏好顺序里
+`application/vnd.pluto.tree+object` **排在 `text/html` 前面**，而
+`display/tree viewer.jl` 里 `pluto_showable(::MIME"…tree+object", ::Tuple) = true`。
+于是 cell 末尾写
+
+```julia
+plotly_html("oq_a", p1), plotly_html("oq_b", p2)   # 返回 Tuple
+```
+
+就走 tree viewer：`TreeView.js` 渲染出 `<pluto-tree class="collapsed">`，
+`treeview.css` 规定 `pluto-tree.collapsed pluto-tree-items { flex-direction: row; align-items: baseline }`
+且 `pluto-tree p-r > p-v { display: inline-flex }`、`p-r > p-k` 显示元素序号——
+两个图被塞进**同一行、各占一半宽度**，自然坏掉。
+半宽容器下 Plotly 的水平图例放不下，就折成竖排（实测宽度阈值 ≈ 200–260px）。
+
+### 14.3 解法
+
+`src/OverQubitViz.jl` 新增 `oq_stack(blocks...; gap=12)`：把多个 HTML 片段包进**一个** HTMLStr
+（flex column、每个子项 `width:100%`）。Pluto 对单个 HTMLStr 走 `text/html` 原样内联，每张图都拿到 100% 宽。
+
+```julia
+oq_stack(plotly_html("oq_fan", pfan; height=440), plotly_html("oq_band", pband; height=410))
+```
+
+已替换 3 处：`flux_tuning.jl`（扇形图+色散图）、`s21_readout.jl`（幅度+相位）、`single_qubit_gate.jl`（包络+布居）。
+同规则适用于 `md"a", md"b"`——一律包成一个。
+
+### 14.4 防回归
+
+`scripts/notebook_selftest.jl` 的 `check_html_tuple`：cell 求值后若返回_tuple/vector 且元素全是
+HTMLStr 或 Markdown.MD，直接报错并提示改用 `oq_stack`（已用旧写法实测可触发）。
+
+### 14.5 另：浏览器"保存网页"拿不到可用导出
+
+Pluto 的编辑器页把前端 bundle 全部内联（≈8.8 MB），用浏览器 Ctrl+S 存下来得到的只是**外壳**
+（`<pluto-editor class="loading">`，没有 `window.pluto_statefile = "data:;base64,…"`），
+单独打开只会一直转圈。要拿自包含 HTML，请用 Pluto 的导出按钮（`/notebookexport` 会 bake statefile）。
+本项目快速预览可用 `julia spike/preview_any.jl`（`NB=<name>` 环境变量）生成静态页。
+
+## 15. 动画帧坑：不写 `traces=[i]` 会把背景曲线顶没（2026-09-27）
+
+### 15.1 症状
+
+`flux_tuning` 势阱图点"播放"后**抛物线整条消失**，只剩红球；`single_qubit_gate` 的 Bloch 球会少一条
+纬线框。静态看完全正常，只有播放才暴露。
+
+### 15.2 根因（Plotly.js 的 frameMerge）
+
+`src/plots/plots.js` 的 `frameMerge`：
+
+```js
+traceIndices = framePtr.traces;
+if(!traceIndices) {
+    // If not defined, assume serial order starting at zero
+    traceIndices = [];
+    for (i = 0; i < framePtr.data.length; i++) traceIndices[i] = i;
+}
+```
+
+随后 `plots.transition` 执行
+`gd.data[traceIndices[i]] = plots.extendTrace(gd.data[traceIndices[i]], data[i])`。
+所以帧数据 `data[0]` **永远作用在 `gd.data[0]`** 上。我们的小球/标记 frames 只写了一条 data，
+它就去覆盖 trace 0 —— 而 trace 0 恰好是势阱抛物线 / 第一条经纬线框 → 曲线被单个 marker 顶替。
+
+### 15.3 解法
+
+`src/OverQubitViz.jl` 新增 `anim_frame(idx, name, trace)`，强制写 `traces=[idx]`。
+用法：先放一条**专用小 trace**（通常放最后），再
+
+    BALL = length(traces) - 1        # 0 基
+    frames = [anim_frame(BALL, string(k), scatter(x=[xs[k]], y=[ys[k]]; mode="markers", ...))
+              for k in 1:nfr]
+
+已修正 4 处（flux_tuning 势阱、mvp0 势阱、single_qubit_gate Bloch、two_qubit 双 Bloch），
+并把原本"碰巧对"的 2 处（s21_readout 散点云、t1_t2 IQ 投影线）也改成显式 `anim_frame(0, …)`。
+
+### 15.4 防回归
+
+- `scripts/notebook_selftest.jl`：静态扫描 notebook 源码，出现裸 `frame(` 直接报错。
+- `scripts/check_frames.jl`：逐 cell 求值后抓 `frames` 与 `tr`/`traces`，
+  核对每帧 `traces[i]` 指向的 trace 必须是小 trace（>20 点即判为背景曲线 → FAIL）。
+  当前 6 个动画图全部通过（索引见上文表格）。
 
 ## 12. 显式排除（本期不做）
 
 真机控制/校准（Qiskit Experiments 域）、任意用户自定义电路（SQcircuit 域）、量子极限放大器、多比特网络。这些在 backlog 评审时再议。
+
+## 16. CZ 门引擎与两个新演示 notebook（2026-09-27）
+
+**新增一块磁通脉冲两比特引擎 + 两个 notebook（⑧ 原理 / ⑨ 校准）**，全部沿用 §9 分层铁律
+（物理层纯 Julia、规格层数据化、渲染层只出 HTML）与 §11 工程约定。
+
+### 16.1 新增物理引擎（`src/OverQubit.jl`，仍只依赖 LinearAlgebra）
+
+| 函数/类型 | 职责 | 演示 |
+| --- | --- | --- |
+| `cz_pair` / `CZPair` / `cz_squid_ej` | CZ 工作台：qubit1 固定 + qubit2 是 SQUID（`E_J2(Φ) = EJ2(cos πΦ + D)`） | 两者 |
+| `cz_hamiltonian` / `cz_levels` / `cz_level_energy` | 固定参考基里改写 Ĥ₂(Φ) 后的哈密顿量与 dressed 谱 | 两者 |
+| `cz_gap` / `cz_crossing` / `cz_detuning` | \|11⟩↔\|02⟩ avoided crossing 的最低点、隧穿耦合 2V、裸失谐振判据 | 两者 |
+| `cz_pulse_shape` / `cz_flux` / `cz_evolve` | 脉冲包络（方沿/平滑沿）与分段常值传播；同段并行传播「关掉 g_c」的参考演化 | 两者 |
+| `cz_conditional_phase` / `cz_leakage` / `cz_ramsey` / `cz_ramsey_pair` / `cz_metrics` / `cz_zcorrect` / `cz_chevron` | 条件相位、泄漏、Ramsey 校准序列（信号/参考）、门保真度（含虚拟 Z 校正）、二维网格 | ⑨ |
+
+关键约定（写进 docstring，避免与既有引擎混淆）：
+
+- **固定参考基投影**：参考基 = 两个 transmon 在 Φ=0（idle）的本征态前 `nlev` 个；任意磁通下把
+  「随磁通变化的电荷基 Ĥ₂(Φ)」投影回**同一组固定基**，而不是重新对角化再截断（后者白送一套
+  基变换产生的非绝热项）。`nlev=3` 是硬性要求——|2⟩ 是 CZ 的主角。
+- **能量零点对齐 TwoQubit**：`cz_hamiltonian(p, 0)` 与 `TwoQubit(t1, t2, g_c).H` 逐项一致（差 < 1e-12）；
+  时变部分只把「参考基态能」存成常数 `E2_ref` 每步减掉（只动对角元）。
+- **相对传播子 `Urel = U·U_ref†`**（`U_ref` = 关掉 `g_c` 的**同一磁通脉冲**）：|11⟩ 的对角相位以
+  ~13 GHz 旋转，直接取 `angle` 差分会一步步跨过 ±π → 去包裹完全错乱。参考相减后剩下的差分量级
+  只有 MHz～百 MHz，既稳又正是实验上 spectator Ramsey 参考序列测到的东西。
+- **虚拟 Z 校正 `cz_zcorrect`**：再减掉两个比特各自的单比特相位（`a = φ00−φ10`、`b = φ00−φ01`），
+  之后 `P₁ = sin²(δφ/2)`、过程保真度才有意义；不校正时 `F_proc` 会被 13 GHz 残差打成一片。
+- **条件 Bloch 矢量 = 条件相位本身**：`x = 2|v₀||v₁|cos φ_CZ(t)`，横向长度随泄漏收缩，
+  「门不干净」在球面上直接看得见。
+- **2π 单位坑**：能级组合给出的是频率（MHz），相位速率要乘 `2π`。本次踩过两次，回归里专门有一项
+  「idle 条件相位速率 = −2π·(谱学 4 态组合)」。
+
+### 16.2 新增演示 notebook
+
+| 文件 | 主题 | 组件 |
+| --- | --- | --- |
+| `notebooks/cz_gate.jl` | CZ 实现原理：\|11⟩↔\|02⟩ avoided crossing、绝热/非绝热、波形边沿、条件 Bloch 旋转 | 能级扇形 + 磁通轨迹/相位累积 + 双 Bloch 球动画 + 相位 fringe + \|U_rel\|² 热图 + 8 步推导 + quiz |
+| `notebooks/cz_calibration.jl` | CZ 校准方案：chevron 二维扫描、两条 fringe 精调、误差预算、参考序列 | chevron 热图（P₁）+ 泄漏热图 + 长度/幅度 fringe + 校准流程读数表 + 9 步推导 + quiz |
+
+两页共用同一批滑块名（`ratio2`、`amp_phi`、`t_pulse`、`shape_sel`，见 `scripts/notebook_selftest.jl`
+的 defaults）；chevron cell 只依赖器件参数，调脉冲滑块不会重算网格（保持交互流畅）。
+
+### 16.3 验收链
+
+- `scripts/validate_cz.jl`（新，28 项）：与 `TwoQubit` 的一致性（H、谱、恒定 H 布居对照
+  `evolve_two_qubit`）、酉性、`g_c=0` ⟹ 条件相位恒 0、`H(Φ)` 偶对称、crossing 判据 `δ≈α₂`、
+  idle ZZ 速率（含 2π）、理想 CZ 读数、条件 Bloch ≈ (−1,0,0)、步长收敛、方沿/平滑沿泄漏对比、
+  chevron 网格与工作点自洽。
+- 既有四项全部未回归：`validate.jl`（最大相对误差 4.58e-13）、`validate_dynamics.jl`、
+  `validate_new.jl`、`notebook_selftest.jl`（9 个 notebook 全通过）。
+- `spike/preview_any.jl` 无头渲染两页成功（`NB=cz_gate` / `NB=cz_calibration`）。
+
+### 16.4 踩坑记录（本次，务必遵守）
+
+1. **广播陷阱**：`A .-= A[1,1]` 会移矩阵所有元素，不是对角相减；要逐对角元减，或构造 `Diagonal`。
+2. **结构跳变矩阵必须把 `E_J` 因子化**（存 −½，别存 −E_J/2），否则 `E_J(Φ)·Hop` 双重计数，
+   表现为能级整体离谱（本次一度出现 −432 GHz 的「基态」）。
+3. **相位必须取 `Urel` 的对角元**（`⟨c|U U_ref†|c⟩ = Σ_j U[c,j]U_ref[c,j]*`），
+   **不能**写成 `U[c,c]·conj(Uref[c,c])`——脉冲期间 `U_ref` 在乘积基里并不对角，漏掉交叉项相位就错。
+4. **`round(x, decimals=)` 不存在**，关键字是 `digits`（`decimals` 是 Python 的肌肉记忆）。
+5. **不能事后改 axis dict**（`lay.xaxis.tickvals = ...` 报错）：需要新轴参数时直接构造
+   `Layout(..., xaxis=attr(..., tickvals=..., ticktext=...))`（见 §13.5.5）。
+6. **`push!` 只能对 trace 数组**：`PlotlyBase.heatmap(...)` 返回单个 trace，要 `push!` 进
+   `PlotlyBase.GenericTrace[]` 再传给 `Plot`。
+7. **range 字面量后接 `.*` 有优先级坑**：`0.4:0.1:1.0 .* phi` 解析成 `0.4:0.1:(1.0*phi)` → 空区间；
+   必须写成 `(0.4:0.1:1.0) .* phi` 或 `collect(...)`。
+8. **物理：idle 点必须比 crossing 高 |α|**。共振条件 `f01₁ = f01₂ + α₂`（α₂<0），而磁通只会减小
+   `E_J`，所以可调比特的 idle 频率必须设得更高（本演示默认 `ratio2 = 1.2`）。
+9. **「门」要在固定时间窗里定义**：脉冲结束回到 idle 后，always-on ZZ 仍以 `2π·(4 态组合)` 的速率
+   继续累积条件相位（默认器件 ≈ 0.044 rad/ns → 100 ns 漂 4.4 rad）。`cz_evolve` 默认 `T_ns = 1.5 t_pulse`，
+   读数一律在该窗口内取；这条要跟 ⑤ 的 ZZ 串扰串起来讲。
+10. **泄漏随脉冲长度非单调**（Stückelberg 振荡），"越长越绝热"不能当通用断言；chevron 里的「暗」
+    可能是泄漏造成的假暗——所以 ⑨ 同时画 P₁ 热图和泄漏热图。
+
+---
+
+## 16. 公式必须走 MathJax（2026-09-27）
+
+Pluto 前端**只对 `class="tex"` 的元素**跑 MathJax（`CellOutput.js` 的
+`MathJax.typeset(container.querySelectorAll(".tex"))` + `SetupMathJax.js` 的
+`processHtmlClass: "tex"`）。所以公式一律用 `src/OverQubitViz.jl` 的
+`tex(raw"...")`（行内 `\(...\)`）与 `texblock(raw"...")`（display `\[...\]`）。
+
+五条纪律（详见 `ai/lessons.md` §7）：
+1. 必须带 `class="tex"`；
+2. 定界符用 `\(` `\)`，**不用 `$`**（与 Julia 字符串插值冲突）；
+3. 含反斜杠的 LaTeX 用 `raw"..."`（`"\O"` 是 Julia 非法转义）；
+4. **数学里不许出现中日韩字符**（MathJax 数学字体无 CJK 字形 → 静默缺字），中文放 math 外混排；
+5. `derivation` 步骤是**三元组** `(操作, 公式, 说明)`。
+
+9 个 notebook 的推导链已全部迁移（187 处 `.tex`）。
+`notebook_selftest.jl` 的 `check_no_cjk_in_math` 负责防回归。
