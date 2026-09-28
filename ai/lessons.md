@@ -273,3 +273,26 @@ texblock(l)  # 独占一行 <div class="tex">\[...\]</div>
 - `notebook_selftest.jl` → `check_no_cjk_in_math`：`\(...\)` / `\[...\]` 内出现 CJK 直接报错。
 - 预览页生成后统计 `class="tex"` 数量；浏览器侧断言 `mjx-container` 数 == `.tex` 数。
 - **迁移规模**：9 个 notebook 的推导链全部 LaTeX 化（187 处 `.tex`）+ quiz/cards 8 处。`concept_cards` / `tryout` / `callout` 里还剩描述性文字公式，属"不影响阅读"的遗留。
+
+### 7.6 本轮新增的两条（第 7 轮）
+
+- **`raw"..."` 里写单反斜杠**：`raw` 字符串不做转义，`raw"\\theta"` 会原样进 LaTeX
+  （MathJax 把 `\\` 渲染成换行，公式变成"换行 + heta"）。只有 LaTeX 的换行/矩阵行分隔 `\\`
+  才写双反斜杠（后面跟空格或 `&`，如 `\begin{pmatrix} a \\ b \end{pmatrix}`）。
+  批量修脚本要用**「双反斜杠 + 命令名」**这条规则，别一刀切（会把矩阵行分隔也改掉）。
+- **LaTeX 括号配平要有静态检查**：`\begin{}` 与 `\end{}`、花括号不平衡会让 MathJax 报 merror。
+  已加进 `notebook_selftest.jl` 的 `check_latex_balance`（锚定 `tex(raw"...")` / `texblock(raw"...")`）。
+
+### 7.7 批量改 notebook 的脚本坑（第 7 轮踩到，很贵）
+
+- **`findfirst(f, range)` 返回的是「区间内位置」，不是区间里的值**：`findfirst(i -> lines[i] == "])", 53:825)`
+  返回 6 而不是 58。必须 `stop = start + pos - 1` 换算。**写错会删掉大段文件**（本轮就是）。
+- 替换前必须 `@assert` 区间长度与首末行内容，替换后立刻跑自测；
+  一旦删错，用「错误写法的逆运算」恢复（记录 out = vcat(lines[1:a], new, lines[b:end]) 就能反推）。
+- **同一份替换脚本不要跨文件复用目标**（本轮 splice 脚本带着 `concept_cards([` 的目标被再次运行，
+  把概念卡块重复了一遍）：脚本要么显式传参，要么用完就删。
+- **批量脚本别碰文档字符串**：`spike/fix_raw.jl` 把 `raw"..."` 里的 `\\frac` 改成 `\frac`，
+  但 `OverQubitViz.tex` 的 docstring 里那段是**示例文本**（在普通字符串里，本来就必须写 `\\frac`），
+  改完 `\f` 变成非法转义 → 整个文件 parse 失败、9 个 notebook 全挂。
+  规则：脚本只对 `notebooks/*.jl` 用；对 `src/` 逐行确认；改完立刻跑自测。
+  已在 `spike/fix_raw.jl` 头部加了警告。
