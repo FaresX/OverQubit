@@ -32,11 +32,11 @@ end
 <div style="color:#5A6182;margin-top:8px;font-size:14px">拖动滑块，看势阱里「住」着的量子化能级如何随 E<sub>J</sub>、E<sub>C</sub>、n<sub>g</sub> 变化</div>
 </div>
 <div style="font-size:15px;margin:4px 2px">
-<div style="font-weight:700;font-size:17px;color:#1A1A2E">动手目标：亲眼看到三件事</div>
+<div style="font-weight:700;font-size:17px;color:#1A1A2E">读完这页你能（每条都能当场自检）：</div>
 <ol style="color:#33384D;line-height:1.9">
-<li>势阱 <i>V</i>(φ) = −E<sub>J</sub>&#8202;cos&#8202;φ 中「住」着量子化能级（不是经典小球）</li>
-<li>能级非等间距 → 非谐性 α，这是「只有两个能级好用」的根源</li>
-<li>改变 n<sub>g</sub> 时能级几乎不动 → transmon 对 charge noise 免疫的原因</li>
+<li>指着主图说出<b>三条证据</b>，证明「能级是量子化的」：① 能量只落在离散虚线上（红球却能停在任意高度）；② |ψ|² 只在特定形状上有峰，势阱壁外还有<b>隧穿尾巴</b>；③ 自下而上间距越来越窄——并指出第三条就是非谐性 α</li>
+<li>拖 E<sub>J</sub>、E<sub>C</sub> 两个滑块，用 Koch 公式<b>先估后读</b>：先算 f<sub>01</sub> ≈ √(8E<sub>J</sub>E<sub>C</sub>) − E<sub>C</sub>，再和读数卡对到小数点后两位，并解释为什么 α 总落在 −E<sub>C</sub> 附近</li>
+<li>用一句话说清 transmon <b>为什么不怕 charge noise</b>，并给出当场可验的锚点：把 n<sub>g</sub> 从 −1 拖到 1，电荷色散带宽仍只有 10<sup>−3</sup> MHz 量级；把 E<sub>J</sub>/E<sub>C</sub> 拖到 10，它立刻涨到上百 MHz</li>
 </ol>
 <div style="background:#F4F6FF;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px;color:#5A6182">
 本页所有数字来自 <code>src/OverQubit.jl</code> 的电荷基对角化（<i>H</i> = 4E<sub>C</sub>(n̂ − n<sub>g</sub>)<sup>2</sup> − E<sub>J</sub>&#8202;cos&#8202;φ），
@@ -46,6 +46,9 @@ end
 """)
 
 # ╔═╡ c0000000-0000-4000-8000-00000000c001
+oq_stack(
+callout("超导量子比特不是「缩小版的经典电路」，而是一整个<b>被势阱锁住的量子系统</b>。这一页只讲一件事：一个约瑟夫森结 + 一块电容，为什么会生出离散能级、非等间距、以及对电荷噪声的免疫力——三件事共用同一个引擎（电荷基三对角矩阵的数值对角化），本页每个数字都从它出来，也都能被你用滑块复现。建议读法：先看四张概念卡建立图像 → 拖滑块做实验 → 再回头看推导链（那里解释每一步<b>为什么</b>成立）；读数卡上的每个数字，在推导链里都有对应的一行。",
+	tone="info", title="① 这一页讲什么：把超导电路看成势阱里的量子"),
 lesson_nav([
 	("①", "transmon 能级与量子化", "current"),
 	("②", "单比特门与 Rabi", "todo"),
@@ -54,17 +57,19 @@ lesson_nav([
 	("⑤", "两比特耦合与 iSWAP", "todo"),
 	("⑥", "磁通调谐与能级扇形图", "todo"),
 	("⑦", "T1 / T2 / Ramsey", "todo"),
-])
+]))
 
 # ╔═╡ c0000000-0000-4000-8000-000000000003
 concept_cards([
-("约瑟夫森结", "超导结给出余弦势能 −E<sub>J</sub>cos&#8202;φ：相位 φ 是库珀对的集体坐标，<i>I</i> = <i>I</i><sub>c</sub>sin&#8202;φ。E<sub>J</sub> = <i>ħI</i><sub>c</sub>/2e——势阱深度。"),
-("充电能 E<sub>C</sub>", "把一个库珀对搬上岛需要付出 4E<sub>C</sub>(n−n<sub>g</sub>)² 的电能（n 是库珀对数，n<sub>g</sub> 是栅极偏置）。E<sub>C</sub> = e²/2C——势阱的「动能刻度」。"),
-("相位与电荷的不确定性", "[φ̂, n̂] = i → Δφ·Δn ≥ 1/2。E<sub>J</sub>/E<sub>C</sub> 决定谁占上风：大比值 → φ 钝化（charge noise 免疫），小比值 → 经典电荷态。"),
+("图像 · 势阱里「住」着量子", "约瑟夫森结给出余弦势 <i>V</i>(φ) = −E<sub>J</sub>cos&#8202;φ——一口深 2E<sub>J</sub> 的「碗」（碗底 φ=0、碗沿 φ=±π），默认 E<sub>J</sub>=20 GHz 时碗深约 40 GHz。被这口碗锁住的相位只能取离散能量：主图里三条虚线 E0/E1/E2 就是前三个能级，彩色 |ψ|² 面积画在各自能级上。经典红球可以停在碗里任意高度、在碗壁处速度为零；量子态不能，而且 |ψ|² 在碗壁之外仍有<b>隧穿尾巴</b>。验证锚点：拖大 E<sub>J</sub>，碗变深、三条线一起被压密。"),
+("机制 · 两个能量尺度拔河", "一切由 E<sub>J</sub> 与 E<sub>C</sub> 的拔河决定：E<sub>J</sub> 想把相位钉死在碗底（势阱深度，E<sub>J</sub> = <i>ħI</i><sub>c</sub>/2e），E<sub>C</sub> 想把电荷数钉死（搬一对库珀对上岛要付 4E<sub>C</sub>(n−n<sub>g</sub>)²，E<sub>C</sub> = e²/2C）。量子力学不让两者同时确定（[φ̂, n̂] = i → Δφ·Δn ≥ 1/2），于是相位有零点涨落 φ<sub>zpf</sub> ≈ (2E<sub>C</sub>/E<sub>J</sub>)<sup>1/4</sup> ≈ 0.4 rad。类比：碗越深、球越「重」，井里的量子抖动就越轻。验证锚点：读数卡的 φ<sub>zpf</sub> 随 E<sub>J</sub> 变大而变小。"),
+("定量 · 三条公式管住所有数字", "频率：f<sub>01</sub> ≈ √(8E<sub>J</sub>E<sub>C</sub>) − E<sub>C</sub>（Koch 2007）；非谐性：α ≈ −E<sub>C</sub>；电荷噪声免疫：charge dispersion ∝ exp(−√(8E<sub>J</sub>/E<sub>C</sub>))。默认 E<sub>J</sub>=20、E<sub>C</sub>=0.3 GHz 给出 f<sub>01</sub> ≈ 6.61 GHz、α ≈ −0.34 GHz，与读数卡逐位对得上。三条都是近似，真值来自电荷基三对角矩阵的数值对角化（n<sub>cut</sub>=80，与 scqubits 黄金向量最大相对误差 ~5e-13）。验证锚点：读数卡的「Koch 对照」偏差 0.22%，就是近似质量的仪表。"),
+("代价 · 免疫不是免费的", "transmon 用非谐性换电荷噪声免疫：α ≈ −E<sub>C</sub> ≈ −0.2~−0.3 GHz，只有 f<sub>01</sub>（4–6 GHz）的 4–5%。这意味着驱动 |0⟩↔|1⟩ 时，|1⟩↔|2⟩ 只差 0.3 GHz——驱动一强就会顺手把人口踢上去，泄漏按 amp² 增长（下一页 DRAG 专治它）。E<sub>J</sub>/E<sub>C</sub> 也<b>不是越大越好</b>：色散按 exp(−√(8E<sub>J</sub>/E<sub>C</sub>)) 收益递减，而相对非谐性 |α|/f<sub>01</sub> 越压越小，门越难做快。工程甜点是 E<sub>J</sub>/E<sub>C</sub> ≈ 50–100、f<sub>01</sub> = 4–6 GHz、T<sub>1</sub> = 50–100 μs。"),
 ])
 
 # ╔═╡ c0000000-0000-4000-8000-000000000004
-md"### ③ 调参（拖动滑块，全页自动重算）"
+callout("三个滑块各拧哈密顿量里的一个旋钮：<b>E<sub>J</sub></b>（5–50 GHz，势阱深度）先动——它决定 f<sub>01</sub> 的量级，拖一下看读数卡 f<sub>01</sub> 与 Koch 对照一起走；<b>E<sub>C</sub></b>（0.05–0.5 GHz，动能刻度）次之——它<b>同时</b>控制非谐性 α 与相位涨落 φ<sub>zpf</sub>，拖大会让碗变「软」、能级歪得更厉害；<b>n<sub>g</sub></b>（−1…1，栅极偏置）最后动——它是本页的<b>对照组</b>：transmon 区里它几乎什么都不改，这正是要亲眼确认的事。建议顺序 E<sub>J</sub> → E<sub>C</sub> → n<sub>g</sub>，每动一个就回读数卡核一次数；拖动任一滑块，全页（图、读数卡、推导链结论行）自动重算。",
+	tone="tip", title="③ 调参前先看这里：三个滑块各是什么、先动哪个")
 
 # ╔═╡ c0000000-0000-4000-8000-000000000005
 @bind EJ Slider(5:0.5:50; default=20)
@@ -178,7 +183,8 @@ begin
 		layout_base(height=640, title="势阱、能级与波函数密度（红球＝经典粒子）", updatemenus=animation_menu(),
 			xtitle="相位 φ (rad)", ytitle="能量（相对零点，GHz）", annotations=ann, legend_x=0.15),
 		frames)
-	plotly_html("oq_main", pmain; height=650)
+	oq_stack(plotly_html("oq_main", pmain; height=650),
+		figure_note("看图要诀：① 三条水平虚线是本征能量 E0/E1/E2——间距自下而上<b>变窄</b>，肉眼分不出就把左侧 f01 与 f12 两个箭头比一比；② 彩色 |ψ|² 面积画在各自能级上，峰宽就是 φ<sub>zpf</sub>，把 E<sub>C</sub> 拖大会看到它们变胖、甚至顶到碗壁；③ 红球是经典粒子，盯住它在碗壁处「减速—停住—折返」，再看 |ψ|² 在同一位置仍有尾巴——那就是隧穿。"))
 end
 
 # ╔═╡ c0000000-0000-4000-8000-00000000000b
@@ -200,56 +206,77 @@ begin
 	pdisp = PlotlyBase.Plot(tr,
 		layout_base(height=520, title="电荷色散：f01(n_g) 几乎完全平坦",
 			xtitle="偏移电荷 n_g", ytitle="相对均值 (MHz)"))
-	plotly_html("oq_disp", pdisp; height=530)
+	oq_stack(plotly_html("oq_disp", pdisp; height=530),
+		figure_note("看图要诀：① 纵轴是 f<sub>01</sub>(n<sub>g</sub>) 相对均值的偏移，单位 MHz——默认参数下整条曲线的摆幅不到 0.001 MHz，也就是说 <b>n<sub>g</sub> 从 −1 拖到 1，比特频率纹丝不动</b>；② 橙色点线是当前 n<sub>g</sub>，拖 n<sub>g</sub> 时它扫过全图，曲线却不跟着动——这就是「指数压低」的视觉版；③ 把 E<sub>J</sub> 拖到 5 再看（E<sub>C</sub>=0.3）：曲线立刻涨到 12 MHz 量级；再把 E<sub>C</sub> 拖到 0.5 就是上百 MHz，纵轴刻度会自己换量级。"))
 end
 
 # ╔═╡ c0000000-0000-4000-8000-00000000000c
-derivation("⑤ 推导溯源：从约瑟夫森电路到能级",
+oq_stack(derivation("⑤ 推导溯源：从约瑟夫森电路到能级",
 [
-	("定义", texblock(raw"\mathcal{L} = \frac{C}{2}\Big(\frac{\hbar\dot\varphi}{2e}\Big)^2 + E_J\cos\varphi \qquad\Rightarrow\qquad \mathcal{L} = \frac{C\hbar^2}{8e^2}\dot\varphi^2 + E_J\cos\varphi"), "并联约瑟夫森电路：电容储能 $(tex(raw"(C/2)V^2")) 用 $(tex(raw"V = (\hbar/2e)\dot\varphi")) 换成相位速度；结给出 $(tex(raw"-E_J\cos\varphi"))。"),
-	("代入", texblock(raw"Q = \frac{\partial \mathcal{L}}{\partial \dot\varphi} = \frac{C\hbar^2}{4e^2}\dot\varphi \;\;\Rightarrow\;\; H = \frac{Q^2}{2C\hbar^2/4e^2} - E_J\cos\varphi = 4E_C\,n^2 - E_J\cos\varphi, \quad n \equiv \frac{Q}{2e}"), "勒让德变换换到哈密顿量；定义无量纲电荷 $(tex(raw"n"))（库珀对数算符的期望）。"),
-	("定义", texblock(raw"[\hat\varphi, \hat n] = i, \qquad \hat H = 4E_C\,(\hat n - n_g)^2 - E_J\cos\hat\varphi"), "量子化：相位与电荷成共轭对易量；栅极偏置以 $(tex(raw"n_g")) 平移进入。$(tex(raw"E_C = e^2/2C"))。"),
-	("代入", texblock(raw"\hat n|n\rangle = n|n\rangle, \qquad \cos\hat\varphi = \tfrac12\big(\delta_{n,n+1} + \delta_{n,n-1}\big)"), texblock(raw"\Rightarrow\quad H_{nn} = 4E_C(n-n_g)^2, \qquad H_{n,n\pm1} = -\frac{E_J}{2}")),
-	("代入", "$(tex(raw"e^{\pm i\varphi}")) 只在相邻电荷态间移动一个库珀对 → 三对角矩阵（本页所有数字都来自对它的对角化）。", ""),
-	("近似", texblock(raw"\text{截断 } |n| \le n_{cut} = 80 \ \Rightarrow\ \text{数值对角化} \rightarrow E_0, E_1, \dots\ \text{与本征矢}"), "低能级对 $(tex(raw"n_{cut}")) 收敛极快；黄金向量验收证实 $(tex(raw"n_{cut}=50")) 已达机器精度。"),
-	("微扰", texblock(raw"\cos\varphi \approx 1 - \frac{\varphi^2}{2} + \frac{\varphi^4}{24} \;\;\Rightarrow\;\; \omega_{ho} = \sqrt{8E_J E_C}"), "势阱底部近似抛物线给出均匀能级间距，四次项把它「压弯」——这就是非等间距的来源。"),
-	("微扰", texblock(raw"\alpha = E_{12} - E_{01} \approx -E_C \quad(\varphi^4\ \text{项的一级微扰})"), texblock(raw"\varphi_{zpf} = \Big(\frac{2E_C}{E_J}\Big)^{1/4}")),
-	("整理", texblock(raw"\omega_{01} \approx \sqrt{8E_J E_C} - E_C \qquad (\text{Koch 2007 解析极限})"), "本页读数卡的「Koch 对照」就是它；两者在 $(tex(raw"E_J/E_C \gtrsim 50")) 时吻合到 ~0.2%。"),
-	("整理", texblock(raw"\text{charge dispersion} \;\propto\; \exp\!\Big(-\sqrt{8E_J/E_C}\Big)"), "电荷色散图的带宽随 $(tex(raw"E_J/E_C")) 指数塌缩——transmon 对 charge noise 免疫的定量理由。"),
+	("定义", texblock(raw"\mathcal{L} = \frac{C}{2}\Big(\frac{\hbar\dot\varphi}{2e}\Big)^2 + E_J\cos\varphi \qquad\Rightarrow\qquad \mathcal{L} = \frac{C\hbar^2}{8e^2}\dot\varphi^2 + E_J\cos\varphi"), "从一个真实的电路出发：约瑟夫森结并联一块电容 C，电容储能是 (C/2)V²，而结两端电压与相位速度直接相连 V = (ħ/2e)φ̇；结自己给出势能 −E_Jcos&#8202;φ。这一步只做变量替换，把电路的电磁量全部翻译成相位 φ 这<b>一个</b>自由度。图像类比：φ 是碗里小球的位置，C 是它的质量，E_J 决定碗形——主图横轴就是 φ，画出来的曲线正是它。失效条件：结电容与杂散电容被合并成一个 C，且忽略环的有限电感。"),
+	("代入", texblock(raw"Q = \frac{\partial \mathcal{L}}{\partial \dot\varphi} = \frac{C\hbar^2}{4e^2}\dot\varphi \;\;\Rightarrow\;\; H = \frac{Q^2}{2C\hbar^2/4e^2} - E_J\cos\varphi = 4E_C\,n^2 - E_J\cos\varphi, \quad n \equiv \frac{Q}{2e}"), "对 φ̇ 做勒让德变换换到哈密顿量，动能项变成 Q² 除以一个有效电容。定义无量纲电荷 n = Q/2e（多搬一对库珀对，n 加 1），动能项整齐地写成 $(tex(raw"4E_C n^2"))，其中 $(tex(raw"E_C = e^2/2C"))——到此得到本页一切数字的出发点 H = 4E_C n² − E_Jcos&#8202;φ。验证锚点：E_C 滑块拧的就是这个系数，拖大它会同时看到 f01 上升、α 变大。失效条件：E_C 必须用<b>总</b>电容算，漏掉杂散电容会系统性低估 E_C、高估 f01。"),
+	("定义", texblock(raw"[\hat\varphi, \hat n] = i, \qquad \hat H = 4E_C\,(\hat n - n_g)^2 - E_J\cos\hat\varphi"), "把 φ 与 n 当成一对共轭算符：$(tex(raw"[\hat\varphi,\hat n]=i"))，正如位置与动量。栅极偏置把电荷零点平移 $(tex(raw"n_g"))，它不必是整数，于是哈密顿量写成 $(tex(raw"4E_C(\hat n-n_g)^2 - E_J\cos\hat\varphi"))。这一步是全页唯一的量子化假设，后面就都是算术。验证锚点：n_g 滑块扫的就是这个平移量，而读数卡的 f01 几乎不动。失效条件：n_g 被当作准静态偏置；随时间快速涨落的 n_g 是噪声，要另算（见 ⑦ 的退相干）。"),
+	("代入", texblock(raw"\hat n|n\rangle = n|n\rangle, \qquad \langle n|\cos\hat\varphi|n\pm1\rangle = \tfrac12"), "在电荷基 |n⟩ 里 n̂ 是对角的，而 $(tex(raw"\cos\hat\varphi = (e^{i\hat\varphi}+e^{-i\hat\varphi})/2")) 每作用一次就把 n 改变 ±1——它只连接<b>相邻</b>电荷态。于是哈密顿量不是稠密矩阵，而是一条三对角的窄带。类比：一排相邻的台阶，每一级只和左右邻居握手。验证锚点：本页所有数字都来自对这条窄带矩阵的对角化。失效条件：无（这一步精确），代价只是得不到闭式解、必须数值计算。"),
+	("代入", texblock(raw"H_{nn} = 4E_C(n-n_g)^2, \qquad H_{n,n\pm1} = -\frac{E_J}{2}"), "把两个算符的矩阵元摆出来：对角线是充电能的抛物线 $(tex(raw"4E_C(n-n_g)^2"))，次对角线是常数 $(tex(raw"-E_J/2"))（隧穿强度）。抛物线 + 常数隧穿 = 三对角矩阵，它正是连续版 Mathieu 方程的离散形式。验证锚点：读数卡每个数字都是它对角化后本征值的差分。失效条件：无；这也是「换磁通只需换 E_J 一个数」的原因（见 ⑥ 页）。"),
+	("近似", texblock(raw"|n| \le n_{cut} = 80 \;\Rightarrow\; \mathrm{eig}(H) \to E_0, E_1, E_2, \dots"), "矩阵本是无穷维，实际只取 $(tex(raw"|n|\le 80")) 的窗口做数值对角化。低能级收敛极快：$(tex(raw"E_J/E_C \gtrsim 50")) 时 n_cut = 50 已到机器精度（黄金向量验收：8 个参数点、对 scqubits 最大相对误差 ~5e-13）。验证锚点：把 NCUT 改小再改回，读数卡前几位不该变。失效条件：势阱越浅（E_J/E_C 越小）电荷数涨落越宽，需要的 n_cut 越大。"),
+	("微扰", texblock(raw"\cos\varphi \approx 1 - \frac{\varphi^2}{2} + \frac{\varphi^4}{24} \;\;\Rightarrow\;\; \omega_{ho} = \sqrt{8E_J E_C}"), "碗底附近把 cos 展开：二次项就是抛物线，给出<b>等间距</b>能级 $(tex(raw"\omega_{ho}=\sqrt{8E_JE_C}"))；四次项描述碗壁向外张开，把上层间距往下压——非等间距就是这么来的。读数卡的「谐波近似频率」就是 ω_ho，默认参数 6.93 GHz，比真实 f01 = 6.61 GHz 高出约 E_C。验证锚点：动画红球的摆动频率正是 ω_ho，它明显快过量子的 f01。失效条件：$(tex(raw"\varphi\ll 1")) 才成立；E_J/E_C = 10 时 φ_zpf ≈ 0.67 rad，波函数已摸到碗壁，这条展开开始失真。"),
+	("微扰", string(texblock(raw"\alpha = E_{12} - E_{01} \approx -E_C"), texblock(raw"\varphi_{zpf} = \Big(\frac{2E_C}{E_J}\Big)^{1/4}")), "四次项的一级微扰直接给出非谐性 α ≈ −E_C：能级越往上间距越窄，读数卡的 α = f12 − f01 默认为 −0.34 GHz（≈ −1.1E_C，微扰只到主导项，差 ~10%）。α 是「两能级近似合法」的唯一保证：|1⟩ 与 |2⟩ 之间只差它，驱动 |0⟩↔|1⟩ 才不至于顺手打到 |2⟩。φ_zpf 则给出相位涨落的宽度，也就是主图 |ψ|² 的胖瘦（默认 0.42 rad）。验证锚点：把 E_C 加倍，α 约加倍，而 f01 只按 √E_C 增长。"),
+	("整理", texblock(raw"\omega_{01} \approx \sqrt{8E_J E_C} - E_C \qquad (\text{Koch 2007})"), "把微扰结果整理成实验上最好用的形式：f01 ≈ √(8E_JE_C) − E_C。它与数值对角化在默认参数下只差 0.22%，读数卡的「Koch 对照」实时显示这个偏差；想把比特频率做高，按它加 E_J 或 E_C 即可。验证锚点：拖 E_J 时读数卡的 f01 与 Koch 值始终并肩移动。失效条件：这个公式其实相当皮实（E_J/E_C = 10 时偏差仍不到 1%），真正先垮的是上一步的 α ≈ −E_C。"),
+	("整理", texblock(raw"\text{charge dispersion} \;\propto\; \exp\!\Big(-\sqrt{8E_J/E_C}\Big)"), "最后一行回答「为什么不怕 charge noise」：f01 对 n_g 的依赖被 $(tex(raw"\exp(-\sqrt{8E_J/E_C})")) 压住，默认参数下指数因子已小到 1e-10 量级、带宽只有 8e-4 MHz。物理图像：隧穿 E_J 把电荷本征态抹平成「相位确定态」，n_g 的平移再也推不动能级。验证锚点：电荷色散图——n_g 从 −1 拖到 1，f01 几乎纹丝不动；把 E_J 拖到 5 就涨到 12 MHz。失效条件：E_J 被拧小（⑥ 磁通调谐页的主题）时指数因子暴涨，免疫一夜失效。"),
 	];
-lead="每一步都可点开。从经典电路出发，到本页所有数字的来源——电荷基三对角矩阵。",
-result="对照读数卡：f<sub>01</sub> = $(f01_str) GHz 与 Koch 极限 $(koch_str) GHz 相差 $(string(round(100 * abs(f01 - koch_f01) / f01, digits=2)))%；α = $(alpha_str) GHz ≈ −E<sub>C</sub> = $(string(round(-EC, digits=3))) GHz。")
+lead="这条推导的脉络：<b>一个电路 → 一个自由度 → 一对共轭算符 → 一条窄带矩阵 → 三条好用的公式</b>。
+第 1–3 步是「翻译」：把约瑟夫森电路写成相位 $(tex(raw"\varphi")) 的哈密顿量并量子化，几乎不丢东西；
+第 4–6 步是「算」：把算符摊成三对角矩阵再数值对角化——本页所有数字的真正来源；
+第 7–10 步是「读」：用微扰把结果整理成三条能记住的公式（频率、非谐性、电荷色散）。
+建议对照主图看第 7–8 步：抛物线给 $(tex(raw"\omega_{ho}"))，四次项给 $(tex(raw"\alpha"))，两者的差正是「红球摆动」与「量子能级」的差别。",
+result="<b>结论落回读数卡</b>：f<sub>01</sub> = $(f01_str) GHz 与 Koch 极限 $(koch_str) GHz 只差 $(string(round(100 * abs(f01 - koch_f01) / f01, digits=2)))% ⇒ 第 9 步的整理可用；
+α = $(alpha_str) GHz ≈ −E<sub>C</sub> = $(string(round(-EC, digits=3))) GHz ⇒ 第 8 步的四次项微扰定量成立；
+φ<sub>zpf</sub> = $(zpf_str) rad 解释主图 |ψ|² 的宽度；电荷色散图平到 10<sup>−3</sup> MHz 量级 ⇒ 第 10 步的指数压制真在起作用。
+反例也要会读：把 E<sub>J</sub> 拖到 5、E<sub>C</sub> 拖到 0.5，Koch 对照<b>仍然</b>准，但 α 会跑到 −2.5E<sub>C</sub>、色散带上百 MHz——先垮的是微扰，不是公式。"),
+deep_dive("三条近似各自的「保质期」：谁先失效？", """
+<p>三条近似的保质期不一样长，值得分开记。</p>
+<p>① <b>Koch 公式</b> $(tex(raw"f_{01}\approx\sqrt{8E_JE_C}-E_C")) 最皮实：默认 $(tex(raw"E_J/E_C = 66.7")) 时偏差 0.22%，把滑块拖到最小比值 10 也只有约 0.6%。它只吃「碗底抛物线 + 一阶修正」，对碗壁形状不敏感。</p>
+<p>② <b>$(tex(raw"\alpha\approx -E_C"))</b> 保质期短得多：E_J/E_C = 66.7 时数值结果是 $(tex(raw"-1.12E_C"))，到 E_J/E_C = 10 就变成 $(tex(raw"-2.5E_C"))——读数卡的 α 行当场可验。所以它只能当量级估计，做门设计必须用数值的 α。</p>
+<p>③ <b>电荷色散</b> $(tex(raw"\exp(-\sqrt{8E_J/E_C})")) 是三者里最陡的：指数从 e<sup>−23</sup>（E_J/E_C=66.7）涨到 e<sup>−8.9</sup>（E_J/E_C=10），带宽从 8×10<sup>−4</sup> MHz 直接到 125 MHz。<b>它才是 transmon 区的真正判据</b>，而不是 Koch 公式的偏差。</p>
+<p>工程侧的参照系：真实器件 E<sub>J</sub>/h ≈ 10–25 GHz、E<sub>C</sub>/h ≈ 0.2–0.3 GHz、f<sub>01</sub> = 4–6 GHz、α ≈ −200…−350 MHz、T<sub>1</sub> = 50–100 μs；本页默认值 20 / 0.3 正落在这个区间的高频端。数值侧的两条边界：n<sub>cut</sub>=80 对 E_J/E_C ≳ 20 绰绰有余；而 E_J/E_C = 10 时 |ψ|² 的隧穿尾巴已经摸到 φ ≈ ±π 的碗沿，「四次项微扰」的图像本身开始失真——这时该直接信数值对角化，而不是信任何一条公式。</p>
+""", tone="detail"),
+deep_dive("常见误解：E_J/E_C 越大越好？——收益递减，代价递增", """
+<p>最常见的误读是把「电荷色散被指数压低」当成「E_J/E_C 越大越好」。指数确实在掉，但收益<b>递减</b>：比值从 50 到 100，指数从 e<sup>−20</sup> 到 e<sup>−28</sup>，而默认参数的带宽已是 8×10<sup>−4</sup> MHz（约 0.8 kHz）——远低于任何实际可测的噪声底，再压没有意义。</p>
+<p>代价却<b>递增</b>：α ≈ −E_C 基本不动，f01 ∝ √E_J 却在涨，于是相对非谐性 $(tex(raw"|\alpha|/f_{01}")) 越来越小——驱动 |0⟩↔|1⟩ 时误伤 |1⟩↔|2⟩ 的概率变大，门只能做得更慢更小心。同时色散读出的判别率 $(tex(raw"\chi")) 变小，读出变慢。也就是说：压电荷噪声换来的是<b>更难做的门和更慢的读出</b>。</p>
+<p>顺手纠正第二条小误解：$(tex(raw"\alpha = -E_C")) 不是恒等式，默认参数下数值结果是 $(tex(raw"-1.12E_C"))（拖滑块对照读数卡的 α 与 −E<sub>C</sub> 两列就明白）。正确的心智模型是「E_C 决定 α 的<b>量级</b>」。工程甜点 E_J/E_C ≈ 50–100 就是在这两头之间取的平衡，本页默认 20 / 0.3 = 66.7 正落在中间。</p>
+""", tone="warn"),
+)
 
 # ╔═╡ c0000000-0000-4000-8000-00000000000d
 tryout([
-("势阱变浅会发生什么", "把 E<sub>C</sub> 拖到 0.5、E<sub>J</sub> 拖到 5（E<sub>J</sub>/E<sub>C</sub> = 10）。",
- "|α| 明显增大（不再是 −E<sub>C</sub> 那么简单）、能级间距分布「歪」得厉害、读数卡的 Koch 对照偏差飙到 10% 以上——谐波近似失效，系统进入 Cooper-pair box 区。"),
-("亲手验证 charge noise 免疫", "E<sub>J</sub>=20、E<sub>C</sub>=0.3 时拖 n<sub>g</sub> 从 −1 到 1。",
- "f<sub>01</sub> 几乎纹丝不动（色散图带宽 ~10⁻³ MHz 量级）；把 E<sub>J</sub> 拖到 5 再拖 n<sub>g</sub>，带宽立刻变大几个量级。"),
-("看懂经典小球与量子态的差别", "点上方动画的「播放」，观察红球在势阱底来回摆动，对比虚线能级与蓝紫色 |ψ|² 分布。",
- "经典小球可以停在任意能量、在转折点速度为零；量子态只能「住」在离散能级上，且 |ψ|² 在转折点外不为零（隧穿尾巴）。红球的摆动频率正是 ω<sub>ho</sub> = $(oh_str) GHz。"),
+("势阱变浅：把器件拖进 Cooper-pair box 区", "<b>动机</b>：transmon 不是天生的，它是「把 E<sub>J</sub>/E<sub>C</sub> 调大」调出来的；亲手把系统拖出 transmon 区，才知道那三条近似各自什么时候作废。<br><b>做法</b>：把 E<sub>C</sub> 拖到 0.5、E<sub>J</sub> 拖到 5（E<sub>J</sub>/E<sub>C</sub> = 10），其余不动。",
+ "<b>看什么</b>：① 读数卡 α 从 −0.34 GHz 跳到 −1.27 GHz（≈ −2.5E<sub>C</sub>，不再是 −E<sub>C</sub>）；② 电荷色散带宽从 8×10<sup>−4</sup> MHz 涨到 125 MHz；③ 主图里 |ψ|² 明显变胖、摸到碗壁，红球与虚线能级的「错位」变大。<br><b>说明什么</b>：先垮的是<b>四次项微扰</b>（α ≈ −E<sub>C</sub>）和电荷噪声免疫，而不是 Koch 公式——它的对照偏差只从 0.22% 涨到 0.57%，比想象中皮实得多。<br><b>如果没看到</b>：确认 E<sub>J</sub> 与 E<sub>C</sub> 都拖到位（比值要在读数卡上看到 10）；若 α 仍 ≈ −E<sub>C</sub>，多半是只拖了 E<sub>J</sub> 没拖 E<sub>C</sub>。"),
+("亲手验证 charge noise 免疫", "<b>动机</b>：「transmon 免疫电荷噪声」不该是一句口号，它应该是一个你<b>看得见读数不动</b>的实验。<br><b>做法</b>：E<sub>J</sub>=20、E<sub>C</sub>=0.3 固定，把 n<sub>g</sub> 从 −1 慢慢拖到 1，眼睛盯住电荷色散图与读数卡的 f<sub>01</sub>。",
+ "<b>看什么</b>：橙色点线扫过整张图，f<sub>01</sub> 曲线却纹丝不动，带宽只有 ~8×10<sup>−4</sup> MHz（0.8 kHz）；然后把 E<sub>J</sub> 拖到 5 再拖一次 n<sub>g</sub>，曲线立刻「呼吸」起来，带宽涨到 12 MHz。<br><b>说明什么</b>：$(tex(raw"\exp(-\sqrt{8E_J/E_C})")) 这个指数因子就是免疫的全部来源；E<sub>J</sub>/E<sub>C</sub> 越大，n<sub>g</sub> 越推不动能级。<br><b>如果没看到</b>：先看纵轴单位是不是 MHz（不是 GHz）——默认参数下摆幅小到容易误以为图坏了；把 E<sub>J</sub>/E<sub>C</sub> 拖小是让效应「现形」的最快办法。"),
+("看懂经典小球与量子态的差别", "<b>动机</b>：「量子化」到底量子在哪？把经典与量子画在同一口碗里，差别就不再抽象。<br><b>做法</b>：点主图动画的「播放」，看红球来回摆动，同时对照三条虚线能级与彩色 |ψ|² 面积。",
+ "<b>看什么</b>：红球在碗壁处减速、停住、折返（经典转折点），而 |ψ|² 在同一位置<b>不为零</b>、还拖出隧穿尾巴；红球摆动的频率是 ω<sub>ho</sub> = $(oh_str) GHz，比量子的 f<sub>01</sub> = $(f01_str) GHz 快出约 E<sub>C</sub>。<br><b>说明什么</b>：经典粒子可以停在任意能量，量子态只能住在离散能级上；两者频率之差正是四次项（非谐性）的宏观体现——推导第 7–8 步就是这两句话的公式。<br><b>如果没看到</b>：动画只动红球不改背景是正常的（帧只更新小球）；若红球不动，先确认点的是「播放」而不是图例；若 |ψ|² 看不出尾巴，把 E<sub>C</sub> 拖大让它胖起来。"),
 ])
 
 # ╔═╡ c0000000-0000-4000-8000-00000000c002
 quiz([
 	("transmon 相对 charge qubit 的核心优势来源是？",
 	 ["E_J/E_C → 0", "E_J/E_C 大 → 电荷色散被指数压低", "E_C = 0", "n_g = 0"], 2,
-	 "电荷色散 $(tex(raw"\propto \exp\!\big(-\sqrt{8E_J/E_C}\big)"))；E_J/E_C 大时 n_g 的依赖被指数压掉——这就是 transmon 对 charge noise 免疫的定量理由。"),
+	 "$(tex(raw"\text{charge dispersion} \propto \exp\!\big(-\sqrt{8E_J/E_C}\big)"))——E_J/E_C 大时 n_g 的依赖被指数压掉，这就是 transmon 对 charge noise 免疫的定量理由。<b>错误选项辨析</b>：A 恰好说反——E_J/E_C → 0 是 charge qubit（CPB）极限，色散不降反爆表（把 E_J 拖到 5 就能看到带宽 12 MHz）；C 把 E_C 归零不是出路：α ≈ −E_C 会一起消失，两能级近似直接失效；D 把 n<sub>g</sub> 调到 0 只是挑了一个偏置点，而「免疫」的意思是 n<sub>g</sub> <b>随便动</b>都没关系——一个点和一条平线是两回事。"),
 	("非谐性 α = f12 − f01 的物理来源是？",
 	 ["量子涨落", "势阱不是抛物线（四次项）", "电荷噪声", "栅极偏置 n_g"], 2,
-	 "cos φ 的四次项让能级间距随能级数下降：α ≈ −E_C。没有它 |0⟩↔|1⟩ 与 |1⟩↔|2⟩ 就等距，两能级近似失效、DRAG 页面要处理的泄漏会更严重。"),
+	 "cos φ 的四次项让能级间距随能级数下降，微扰给出 α ≈ −E_C（默认参数数值值 −1.1E_C）。没有它，|0⟩↔|1⟩ 与 |1⟩↔|2⟩ 等距，两能级近似失效、驱动会无限泄漏。<b>错误选项辨析</b>：A 量子涨落负责的是 φ<sub>zpf</sub>（|ψ|² 的宽度），不决定间距是否等距；C 电荷噪声是<b>外来的</b>扰动，而 α 是器件本征属性，把噪声关掉它照样是 −E_C；D n<sub>g</sub> 只平移电荷零点，拖 n<sub>g</sub> 时 α 几乎不动——这正可以在读数卡上验证。"),
 	("为什么改变 n_g 时 transmon 的能级几乎不动？",
 	 ["n_g 不进哈密顿量", "依赖被指数因子压低", "因为用了电荷基", "因为 α 很小"], 2,
-	 "4E_C(n̂−n_g)² 的 n_g 依赖在深势阱里被 $(tex(raw"\exp(-\sqrt{8E_J/E_C})")) 压掉；浅势阱（CPB 区）时同一条式子给出 MHz 量级的摆幅。"),
+	 "4E_C(n̂−n_g)² 的 n_g 依赖在深势阱里被 $(tex(raw"\exp(-\sqrt{8E_J/E_C})")) 压掉；浅势阱（CPB 区）同一条式子立刻给出 MHz 量级的摆幅。<b>错误选项辨析</b>：A 错在「不进」——n_g 明明白白写在哈密顿量里，只是作用被指数压制，这正是推导第 10 步的内容；C 电荷基只是<b>计算</b>用的基底，换成相位基结论一个字不变；D 因果倒置：α 小是四次项的结果，与 n_g 不敏感之间没有因果关系。"),
 ])
 
 # ╔═╡ c0000000-0000-4000-8000-00000000000e
 @htl("""
 <div style="font-size:14.5px;color:#33384D;line-height:2.0;margin-top:6px">
-<p><b>为什么能级是量子化的？</b>　相位 φ 是库珀对的集体位移，被「锁」在余弦势阱里。约束运动 → 离散谱。E<sub>J</sub> 越大势阱越深越「硬」（f<sub>01</sub> ↑），E<sub>C</sub> 越大越「软」且量子涨落 φ<sub>zpf</sub> 越大。</p>
-<p><b>为什么非等间距？</b>　势阱不是抛物线。四次项使间距随能级数下降（推导第 6 步），差值就是 α。|α| 是「两能级近似」合法性的唯一保证——驱动 |0⟩↔|1⟩ 时若 |2⟩ 等距就会漏到 |2⟩，DRAG 演示将正面处理这个泄漏。</p>
-<p><b>为什么对 n<sub>g</sub> 不敏感？</b>　电荷本征态被隧穿 E<sub>J</sub> 抹平成「相位确定态」，n<sub>g</sub> 的影响指数压低（推导第 8 步）——量子涨落反而带来鲁棒性。</p>
-<p><b>下一步去哪：</b><b>单比特门</b>演示怎么用电磁驱动在这些能级间「打转」；<b>色散读取</b>演示怎么隔着谐振子「看见」量子态。</p>
+<p><b>核心机制：</b>一个结 + 一块电容 = 一口深 2E<sub>J</sub> 的余弦碗 + 一个动能刻度 E<sub>C</sub>。被碗锁住的相位只能取离散能量（量子化的来源）；碗壁的四次项让间距自上而下变窄，差值就是非谐性 α ≈ −E<sub>C</sub>（推导第 7–8 步）；隧穿把电荷本征态抹平成「相位确定态」，于是 n<sub>g</sub> 的作用被 exp(−√(8E<sub>J</sub>/E<sub>C</sub>)) 指数压掉（推导第 10 步）。一句话：<b>用 α 换 charge noise 免疫</b>，这就是 transmon 的全部交易。</p>
+<p><b>常见误解：</b>①「E<sub>J</sub>/E<sub>C</sub> 越大越好」——不对，色散收益递减而门的代价递增（见上面的深潜）；②「α = −E<sub>C</sub>」是恒等式——不对，默认参数下它其实是 −1.1E<sub>C</sub>，E<sub>J</sub>/E<sub>C</sub>=10 时是 −2.5E<sub>C</sub>；③「Koch 公式只在深势阱才准」——反了，它比 α ≈ −E<sub>C</sub> 皮实得多，E<sub>J</sub>/E<sub>C</sub>=10 时偏差仍不到 1%。</p>
+<p><b>真实器件里什么样：</b>f<sub>01</sub> 被刻意放在 4–6 GHz（避开 50 GHz 以上的热激发，又不至于低到被磁通噪声淹没），E<sub>C</sub>/h ≈ 0.2–0.3 GHz 给出 α ≈ −200…−350 MHz，T<sub>1</sub> 做到 50–100 μs，单比特门压缩到 20–40 ns。芯片上它是一小块约 300×700 μm 的约瑟夫森结 + 电容叉指，读数时还要挂一根 λ/4 谐振子——下一页和 ④ 会分别讲这两件事。</p>
+<p><b>下一步去哪：</b><b>单比特门</b>演示怎么用电磁驱动在这些能级间「打转」（重点看 Rabi 与脉冲面积）；<b>DRAG</b> 处理这里埋下的伏笔——|2⟩ 泄漏；<b>色散读取</b>演示怎么隔着谐振子「看见」量子态；<b>⑥ 磁通调谐</b>展示把 E<sub>J</sub> 拧成 E<sub>J</sub>(Φ) 之后，这页的免疫会怎样被「拧没」。</p>
 </div>
 """)
 

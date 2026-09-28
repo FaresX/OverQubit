@@ -1,7 +1,20 @@
 ### A Pluto.jl notebook ###
-# v0.20.10
+# v1.0.3
 
 using Markdown
+using InteractiveUtils
+
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    return quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
 
 # ╔═╡ c3000001-0000-4000-8000-000000000001
 begin
@@ -22,8 +35,14 @@ md"""### ① 这一页讲什么：CZ 门做出来之后，怎么把它「校」�
 细扫，最后拆一遍误差预算。所有读数都来自上一页同一个引擎的真实演化。"""
 
 # ╔═╡ c3000001-0000-4000-8000-000000000003
+oq_stack(
 banner("OVERQUBIT · 两比特门", "CZ 门校准方案：chevron、相位 fringe 与误差预算",
-	"两个旋钮（脉冲幅度 / 长度）+ 一个观测（条件相位）→ 用二维 chevron 扫描把工作点圈出来，再用 fringe 精调，最后拆误差"; icon="pair")
+	"两个旋钮（脉冲幅度 / 长度）+ 一个观测（条件相位）→ 用二维 chevron 扫描把工作点圈出来，再用 fringe 精调，最后拆误差"; icon="pair"),
+HTMLStr("""<div style="margin-top:10px;font-size:13.5px;color:#33384D;line-height:1.9;max-width:78ch"><b>读完这页你能：</b>
+① 看懂 chevron 热图的<b>暗脊</b>，并从它的斜率读出每个旋钮的敏感度（$(tex(raw"d\varphi/dt \approx 0.2")) rad/ns）；
+② 走一遍完整校准流程：谱学定 $(tex(raw"\Phi^{*}")) → chevron 粗扫 → fringe 精调 → 复核；
+③ 拆一个误差预算，指出哪一项主导、下一步该优化什么。</div>"""),
+)
 
 # ╔═╡ c3000001-0000-4000-8000-000000000004
 lesson_nav([
@@ -39,12 +58,22 @@ lesson_nav([
 ])
 
 # ╔═╡ c3000001-0000-4000-8000-000000000005
+oq_stack(
+callout("CZ 门做出来之后，怎么知道它好不好？这一页把「校准」拆成可执行的流程：
+先用<b>二维扫描（chevron）</b>找到相位为 $(tex(raw"\pi")) 的等高线，再用<b>一维细扫（fringe）</b>把两个旋钮分别钉死，
+最后用<b>误差预算</b>告诉你哪一项主导、还剩多少改进空间。
+这套流程在真实器件里每天都在跑——它同时回答了「工作点在哪」和「这个门能用到多好」。
+建议读法：先看 A 图的暗脊（工作点的轨迹）→ 拖 B/C 图的旋钮看 fringe 怎么移 → 最后读误差预算那一行，知道卡在哪。",
+	tone="info", title="① 这一页讲什么：把「好门」变成可测量的数字"),
 concept_cards([
-	("校的是什么", "两个数：<b>脉冲幅度 Φ<sub>pk</sub></b>（决定能级图被拧到什么程度）与<b>脉冲长度 t</b>（决定攒多久相位）。目标只有一个：φ<sub>CZ</sub> = π。副产品要盯住：<b>泄漏</b>和<b>退相干损失</b>。"),
-	("怎么测", "教科书序列：|+⟩₁|1⟩₂ → CZ → X(90°)₁ → 读 qubit1。θ=90° 时 <b>P₁ = sin²(δφ/2)</b>——条件相位偏离 π 多少，直接翻译成布居误差；暗瓣就是 φ<sub>CZ</sub> = π 的等高线。"),
-	("为什么要参考序列", "同一序列再跑一遍但 qubit2 置 |0⟩：没有条件相位，P₁ 是一条不动的高基线。两遍相减 = φ<sub>00</sub> − φ<sub>01</sub> − φ<sub>10</sub> + φ<sub>11</sub>，把 <b>13 GHz 级动态相位</b>整体减掉。实验上这一步叫「参考相减」，数值上就是 <span class=\"oq-kbd\">cz_zcorrect</span> 的虚拟 Z 校正。"),
-	("chevron 的形状", "二维扫 (幅度 × 长度)，P₁ 画成热图。满足 φ=π 的地方是一条斜斜的暗脊——因为「幅度定相位的量级、长度定精细值」，两个旋钮可以互相补偿，所以等值线是斜的而不是竖直/水平的。"),
-])
+	("校的是什么", "两个旋钮：<b>脉冲幅度 $(tex(raw"\Phi_{pk}"))</b>（决定能级图被拧到什么程度，即穿越多深）与<b>脉冲长度 $(tex(raw"t"))</b>（决定攒多久相位）。<br><br>目标只有一个：$(tex(raw"\varphi_{\mathrm{CZ}} = \pi"))。副产品要盯住：<b>泄漏</b>（人口留在 $(tex(raw"|0,2\rangle"))）与<b>退相干损失</b>（门太长时 T2 吃掉对比度）。<br><br>注意两个旋钮不是独立的：加大幅度可以让门变短，但也会改变绝热性要求——校准是在二维曲面上找一个点，不是各调各的。"),
+	("怎么测", "教科书序列：$(tex(raw"|+\rangle_1|1\rangle_2 \to \mathrm{CZ} \to X(90^\circ)_1 \to \text{read } q_1"))。$(tex(raw"\theta=90^\circ")) 时 $(tex(raw"P_1 = \sin^2(\delta\varphi/2)"))——<b>条件相位偏离 π 多少，直接翻译成布居误差</b>。<br><br>这一步是全部测量的基础：相位本身不可测，布居可测。$(tex(raw"\delta\varphi = 0.03")) rad 对应 $(tex(raw"P_1 \approx 7\times 10^{-4}"))，几乎全暗——所以暗瓣就是 $(tex(raw"\varphi_{\mathrm{CZ}} = \pi")) 的等高线。"),
+	("为什么要参考序列", "同一序列再跑一遍但 qubit2 置 $(tex(raw"|0\rangle"))：此时没有条件相位，$(tex(raw"P_1")) 是一条不动的高基线。两遍相减得到 $(tex(raw"\varphi_{00}-\varphi_{01}-\varphi_{10}+\varphi_{11}"))，把 <b>13 GHz 级动态相位</b>整体减掉。<br><br>物理上这一步是必须的：qubit1 自己的相位以 13 GHz 转圈，直接读毫无意义。实验上叫「参考相减」，数值上就是 <span class=\"oq-kbd\">cz_zcorrect</span> 的虚拟 Z 校正。"),
+	("chevron 的形状", "二维扫（幅度 × 长度），$(tex(raw"P_1")) 画成热图。满足 $(tex(raw"\varphi = \pi")) 的地方是一条<b>斜斜的暗脊</b>——因为「幅度定相位的量级、长度定精细值」，两个旋钮可以互相补偿，等值线于是是斜的而不是竖直/水平。<br><br>斜率还有实用意义：它直接给出<b>每个旋钮的敏感度</b>（$(tex(raw"d\varphi/dt \approx 0.2")) rad/ns），也就是时钟要稳到多少 ns、幅度要稳到多少 $(tex(raw"\mathrm{m}\Phi_0"))。"),
+]),
+callout("滑块分两组：<b>器件组</b>（EJ/EC/ratio2）决定 chevron 长什么样，<b>工作点组</b>（amp_phi/t_pulse/shape_sel）决定你站在暗脊的哪一点。<br><br><b>建议动的顺序</b>：先固定器件，只动 t_pulse 沿暗脊走一趟（④ 任务 1）——看清「长度定精细值」；再动 amp_phi 看泄漏怎么涨（任务 2、3）；最后换 shape_sel 对比方沿/平滑沿。器件组最后动，动完要重新找暗脊。",
+	tone="tip", title="③ 调参前先看这里：先动哪个、为什么"),
+)
 
 # ╔═╡ c3000001-0000-4000-8000-000000000006
 callout("本页所有量都来自 ⑧ 的同一个引擎（<span class=\"oq-kbd\">cz_pair</span> + <span class=\"oq-kbd\">cz_evolve</span>），没有引入任何新物理。chevron 网格只依赖器件参数（E<sub>J</sub>、E<sub>C</sub>、耦合、频率比），细扫曲线额外依赖当前脉冲参数。qubit 仍取 3 能级，脉冲按分段常值推进。",
@@ -238,22 +267,57 @@ callout("三项误差里<b>相位残差</b>通常主导：$(err_s) rad ≈ $(err
 divider()
 
 # ╔═╡ c3000001-0000-4000-8000-00000000001b
+oq_stack(
 derivation("⑨ 推导溯源：从测量序列到校准好的 CZ",
 	[
-	("整理", texblock(raw"\text{两个旋钮 } (\Phi_{pk},\ t) \;\to\; \varphi_{\mathrm{CZ}} = \pi \quad ; \quad \text{副产物：泄漏、退相干损失}"), "⑧ 已给出机制：相位在 $(tex(raw"|11\rangle/|0,2\rangle")) 互相转换期间累积；这一页只讨论「怎么把它测出来并调到 $(tex(raw"\pi"))」。"),
-	("定义", texblock(raw"|+\rangle_1|1\rangle_2 \to \mathrm{CZ} \to X(\theta)_1 \to \text{read } q_1"), texblock(raw"P_1 = \frac{1}{2}\Big|(\sin\theta - i\cos\theta)\,v_0 + v_1\Big|^2, \qquad v_{0,1} \propto u_{00} \pm u_{01}")),
-	("定义", texblock(raw"\theta = \frac{\pi}{2}\ \text{脉冲的相位：}\ 0^\circ=\sigma_x,\ 90^\circ=\sigma_y"), "推导只用到单比特旋转的矩阵元。"),
-	("整理", texblock(raw"\theta = 90^\circ\!:\qquad P_1 = \sin^2\!\Big(\frac{\delta\varphi}{2}\Big), \qquad \delta\varphi = (\varphi_{11}-\varphi_{01})-\pi"), "这就是「相位误差翻译成布居误差」的一步：$(tex(raw"\delta\varphi = 0.03")) rad → $(tex(raw"P_1\approx 7\times10^{-4}"))，几乎全暗。读数卡第一、二项就是这个关系。"),
-	("定义", texblock(raw"\varphi_{\mathrm{CZ}} = \varphi_{00}-\varphi_{01}-\varphi_{10}+\varphi_{11} \pmod{2\pi}"), "参考序列同上但 qubit2 置 $(tex(raw"|0\rangle"))：它不感受 CZ，$(tex(raw"P_1")) 停在 1（高频基线）。"),
-	("整理", texblock(raw"\varphi_{\mathrm{CZ}}^{\mathrm{ref}} = \varphi_{00}-\varphi_{01}-\varphi_{10} \equiv \varphi_{\mathrm{Z}}"), "为什么要减：qubit1 的对角相位以 ~13 GHz 旋转，直接读毫无意义；相减把动态相位整体消掉——数值上对应 `cz_zcorrect` 的虚拟 Z 校正。"),
-	("整理", texblock(raw"\varphi_{\mathrm{CZ}} \approx -\int\!\Delta E(t)\,dt \ \Rightarrow\ \text{等值线}\ \Phi_{pk}\cdot(\text{有效穿越深度})^{-1} \approx \mathrm{const}"), "chevron：扫 $(tex(raw"(\Phi_{pk},t)")) 二维、$(tex(raw"P_1")) 画热图。极小处 = $(tex(raw"\varphi_{\mathrm{CZ}}=\pi")) 的等值线，所以**是斜的**（A1 图的暗脊）。斜率 dφ/dt ≈ $(slope_len_s) rad/ns 就是 fringe 的间距尺度，也是「时钟要稳到多少 ns」的答案。"),
-	("微扰", texblock(raw"\text{假暗瓣: 大幅度 + 短长度 } \Rightarrow \text{非绝热激发到}\ |0,2\rangle,\ \ P_1\ \text{变低但门不可用}"), "必须同时看泄漏热图（A2）——这正是「暗脊不等于工作点」的原因；C 图把 $(tex(raw"P_1")) 与泄漏画在同一坐标里对照。"),
-	("整理", texblock(raw"\text{fringe 细调：定 } t \text{ 扫 } \Phi_{pk}\ (\text{C 图}) \ ;\ \text{定 } \Phi_{pk} \text{ 扫 } t \ (\text{B 图})"), "固定其一扫另一个，两者在暗脊上互相补偿，通常用一条 fringe 走到 $(tex(raw"P_1")) 最小即可。真实流程还会交叉验证：交换两个旋钮的角色各走一次，若都在同一个最小值附近，说明没有死锁在局部极值。"),
-	("近似", texblock(raw"\text{误差预算：}\ \varepsilon_\varphi\ \varepsilon_{\mathrm{leak}}\ \varepsilon_{\mathrm{contrast}} = e^{-t/T_2}"), "本页口径均可在读数卡核对：① 相位残差 $(err_s) rad；② 泄漏 $(leak_s)%；③ 退相干对比度损失 → $(contrast_s)%。真实机器还要加：波形边沿不理想（⑧ 对比）、磁通串扰、其它比特的 always-on ZZ、测量 SPAM、时钟抖动。"),
-	("整理", texblock(raw"\text{流程：谱学定 }\Phi^{*} \to \text{chevron 粗扫} \to \text{fringe 精调} \to \text{复核} \to \text{泄漏/RB 校验} \to \text{漂移监控}"), "真实器件里相位零点会随温度、磁通偏置漂移，通常每隔几分钟到几小时重校一次；这也解释了为什么要把校准流程跑得这么快。"),
+	("整理", texblock(raw"\text{两个旋钮 } (\Phi_{pk},\ t) \;\to\; \varphi_{\mathrm{CZ}} = \pi \quad ; \quad \text{副产物：泄漏、退相干损失}"),
+		"先明确要校什么：<b>两个旋钮、一个目标</b>。幅度决定穿越 avoided crossing 的深度，长度决定在相互作用区停留多久。<br><br>注意目标是 $(tex(raw"\varphi_{\mathrm{CZ}}=\pi"))，不是「相位最大」——相位可以绕很多圈，我们只要它落在 $(tex(raw"\pi")) 这个值上（模 $(tex(raw"2\pi"))）。"),
+	("定义", texblock(raw"|+\rangle_1|1\rangle_2 \to \mathrm{CZ} \to X(\theta)_1 \to \text{read } q_1"),
+		"测量序列：把 qubit1 放到赤道上，让 CZ 累积相位，再用一个 $(tex(raw"\theta")) 脉冲把相位<b>转成布居</b>，最后读 qubit1。<br><br>为什么要先放叠加态：条件相位作用在 $(tex(raw"|1,1\rangle")) 上，只有 qubit1 处于叠加时它才是可观测的相对相位。"),
+	("定义", texblock(raw"\theta = \frac{\pi}{2}\ \text{脉冲的相位：}\ 0^\circ=\sigma_x,\ 90^\circ=\sigma_y"),
+		"末脉冲的相位 $(tex(raw"\theta")) 决定测的是布居还是相干：<b>$(tex(raw"90^\circ"))（绕 +y）把 z 分量翻出来测布居</b>，$(tex(raw"0^\circ")) 测的是实部。<br><br>校准里固定用 $(tex(raw"90^\circ"))，因为 $(tex(raw"P_1")) 对 $(tex(raw"\delta\varphi")) 是偶函数、零点最锐。"),
+	("整理", texblock(raw"\theta = 90^\circ\!:\qquad P_1 = \sin^2\!\Big(\frac{\delta\varphi}{2}\Big), \qquad \delta\varphi = (\varphi_{11}-\varphi_{01})-\pi"),
+		"核心转换式：<b>相位偏差 → 布居误差</b>。$(tex(raw"\delta\varphi = 0")) 时 $(tex(raw"P_1 = 0"))（全暗），偏差越大越亮。<br><br>灵敏度很高：$(tex(raw"\delta\varphi = 0.03")) rad 就给出 $(tex(raw"P_1 \approx 7\times 10^{-4}"))，这正是暗瓣能用来定零点的原因。"),
+	("定义", texblock(raw"\varphi_{\mathrm{CZ}} = \varphi_{00}-\varphi_{01}-\varphi_{10}+\varphi_{11} \pmod{2\pi}"),
+		"参考序列：qubit2 置 $(tex(raw"|0\rangle")) 再跑一遍，它不感受 CZ，$(tex(raw"P_1")) 停在高基线。两遍相减就是上式。<br><br>为什么要减三个：qubit1 自己的对角相位以 $(tex(raw"\sim 2\pi\times 13")) GHz 转圈，直接读会完全混叠。"),
+	("整理", texblock(raw"\varphi_{\mathrm{CZ}}^{\mathrm{ref}} = \varphi_{00}-\varphi_{01}-\varphi_{10} \equiv \varphi_{\mathrm{Z}}"),
+		"实验上这一步叫「参考相减」，数值上对应 <span class=\"oq-kbd\">cz_zcorrect</span> 的<b>虚拟 Z 校正</b>：把不需要的动态相位记在一个软件数字里，而不是用微波去实现。<br><br>这也是超导量子计算里最常用的技巧之一——不花时间、不引入误差。"),
+	("整理", texblock(raw"\varphi_{\mathrm{CZ}} \approx -\int\!\Delta E(t)\,dt \ \Rightarrow\ \text{等值线}\ \Phi_{pk}\cdot(\text{有效穿越深度})^{-1} \approx \mathrm{const}"),
+		"chevron 的形状由积分决定：幅度决定「开进去多深」（相位的<b>量级</b>），长度决定「积分多久」（相位的<b>精细值</b>）。<br><br>两者互相补偿 → 等值线是斜的。A1 图的暗脊斜率 $(tex(raw"d\varphi/dt \approx 0.2")) rad/ns 就是 fringe 的间距尺度。"),
+	("微扰", texblock(raw"\text{假暗瓣: 大幅度 + 短长度 } \Rightarrow \text{非绝热激发到}\ |0,2\rangle,\ \ P_1\ \text{变低但门不可用}"),
+		"必须同时看泄漏热图（A2）。这一条是校准里最容易踩的坑：<b>暗 ≠ 好</b>。<br><br>非绝热激发把人口留在 $(tex(raw"|0,2\rangle"))，$(tex(raw"P_1")) 因为「态不见了」而变低，但这个门根本不可用——C 图把 $(tex(raw"P_1")) 与泄漏画在同一坐标里就是为了避免这个误判。"),
+	("整理", texblock(raw"\text{fringe 细调：定 } t \text{ 扫 } \Phi_{pk}\ (\text{C 图}) \ ;\ \text{定 } \Phi_{pk} \text{ 扫 } t \ (\text{B 图})"),
+		"固定其一扫另一个：B 图定长度（fringe 极小点），C 图定幅度（同时检验泄漏）。两者在暗脊上互相补偿。<br><br>真实流程还会<b>交叉验证</b>：交换两个旋钮的角色各走一次，若都在同一个最小值附近，说明没有死锁在局部极值。"),
+	("近似", texblock(raw"\text{误差预算：}\ \varepsilon_\varphi,\ \ \varepsilon_{\mathrm{leak}},\ \ \varepsilon_{\mathrm{contrast}} = e^{-t/T_2}"),
+		"本页口径三项都可在读数卡核对：相位残差、泄漏、退相干对比度损失。<br><br>通常<b>相位残差主导</b>，但如果把脉冲拖得太短，泄漏会立刻取代它成为第一项——这就是校准要在二维上做的原因。"),
+	("整理", texblock(raw"\text{流程：谱学定 }\Phi^{*} \to \text{chevron 粗扫} \to \text{fringe 精调} \to \text{复核} \to \text{泄漏/RB 校验} \to \text{漂移监控}"),
+		"这就是真实器件上的完整流程。前四步本页都有对应图，后两步（RB、漂移监控）是工程实践。<br><br>真实器件里相位零点会随温度、磁通偏置漂移，通常每隔几分钟到几小时重校一次。"),
 	];
-	lead="每一步都可点开。读数卡与 A/B/C 三组图分别对应第 3、5、7 步。",
-	result="当前工作点（幅度 = Φ* 的 $(amp_ratio_s)%，长度 $(t_pulse) ns，$(shape_sel)）：φ<sub>CZ</sub> = $(phase_s) rad（残差 $(err_s) rad = $(err_deg_s)°），校准读数 P₁ = $(p1_s)（参考基线 $(p1ref_s)），泄漏 $(leak_s)%，4 态保真度 $(fstate_s)%，退相干损失 $(contrast_s)%。")
+	lead="这条推导回答：<b>「好门」怎么变成可测量、可复现的数字？</b>
+	脉络是：明确两个旋钮一个目标（第 1 步）→ 用一条把相位翻译成布居的序列（第 2–4 步）
+	→ 用参考序列减掉 13 GHz 的动态相位（第 5–6 步）→ 从积分式读出 chevron 为什么是斜的（第 7 步）
+	→ 警告「暗 ≠ 好」（第 8 步）→ 给出细调与误差预算（第 9–11 步）。
+	读数卡与 A/B/C 三组图分别对应第 3、5、7 步。",
+	result="当前工作点（幅度 = $(tex(raw"\Phi^{*}")) 的 $(amp_ratio_s)%，长度 $(t_pulse) ns，$(shape_sel)）：φ<sub>CZ</sub> = $(phase_s) rad（残差 $(err_s) rad），泄漏 $(leak_s)%，对比度损失 $(contrast_s)%——把这三项按主导程度排一排，就是你下一步该优化的方向。"),
+deep_dive("校准里的「斜率」为什么比「零点」更有信息量？", """
+<p>暗脊的<b>零点</b>只告诉你工作点在哪；<b>斜率</b>告诉你这个工作点有多脆弱。
+A1 图的斜率 $(tex(raw"d\varphi/dt \approx 0.2")) rad/ns 意味着：脉冲长度抖 1 ns，相位就漂 0.2 rad——
+已经超过误差预算了。所以真实器件要对时钟抖动提出 ns 级要求。</p>
+<p>同理，幅度方向的斜率给出 $(tex(raw"d\varphi/d\Phi_{pk}"))，它决定 DAC 的分辨率要求
+（通常是 $(tex(raw"\mathrm{m}\Phi_0")) 量级）。<b>这两个斜率就是「校准曲线的灵敏度」</b>，
+也是为什么校准要反复做：器件漂移会让暗脊整体平移，而斜率告诉你需要多稳。</p>
+<p>实用技巧：在暗脊上选一个<b>斜率较小</b>的位置（弯曲处），对漂移的敏感度会显著降低——
+这是「sweet spot」思想在校准层面的对应物。</p>
+""", tone="detail"),
+deep_dive("常见误解：校准一次就一劳永逸？", """
+<p><b>误解：找到工作点就能一直用。</b>实际上相位零点随温度、磁通偏置、相邻比特状态漂移，
+真实器件每隔几分钟到几小时就要重校。<b>斜率越陡，重校越频繁</b>——这就是为什么工程上追求平缓的工作点。</p>
+<p><b>误解：误差预算三项是独立的。</b>它们通过脉冲长度耦合：门越长，退相干项 $(tex(raw"e^{-t/T_2}")) 越大，
+但绝热性越好、泄漏越小。所以「优化」是找一个三者之和最小的长度，不是分别压每一项。</p>
+<p><b>误解：暗瓣中心就是好工作点。</b>暗只代表相位对，不代表泄漏小（见推导第 8 步的假暗瓣）。
+必须同时看泄漏热图——<b>暗 + 低泄漏</b>才是真工作点。</p>
+""", tone="warn"),
+)
 
 # ╔═╡ c3000001-0000-4000-8000-00000000001c
 tryout([

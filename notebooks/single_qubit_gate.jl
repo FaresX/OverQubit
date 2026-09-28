@@ -41,18 +41,34 @@ lesson_nav([
 <div style="font-size:12px;letter-spacing:2px;color:#7B61FF;font-weight:600">OVERQUBIT · 单比特门</div>
 <div style="font-size:24px;font-weight:700;color:#1A1A2E;margin-top:4px">驱动、Rabi 振荡与脉冲面积</div>
 <div style="color:#5A6182;margin-top:8px;font-size:14px">给 transmon 加一束微波驱动，看 Bloch 球上的状态如何被「推」着转——门，就是控制这个旋转</div>
+<div style="margin-top:12px;font-size:13.5px;color:#33384D;line-height:1.9;max-width:78ch">
+<b>读完这页你能：</b>①说清微波驱动是<b>怎么</b>变成作用在 qubit 上的力的（不是「施加一个电场」这么简单）；
+②徒手把一个 X 门调出来，并解释为什么是 <b>π</b> 而不是别的数；
+③说出「门不能无限快」的<b>定量</b>原因（泄漏 ∝ amp²），而不是「有噪声」这种含糊答案。
+</div>
 </div>
 """)
 
 # ╔═╡ a0000000-0000-4000-8000-000000000003
+oq_stack(
+callout("量子门不是魔法，它就是<b>受控的转动</b>：一个被我们精确控制方向与角度的旋转。
+这一页从「驱动怎么作用上去」讲到「转多少角度」再到「为什么转快了会失控」，
+三件事串成一条线——每一步都能在下方的图和读数卡上找到对应的证据。
+建议的读法：先看四张概念卡建立图像 → 拖滑块做实验 → 再回头看推导链（那里解释每一步<b>为什么</b>成立）。",
+	tone="info", title="① 这一页讲什么：把「门」拆成一次受控旋转"),
 concept_cards([
-("驱动怎么耦合 qubit", "电压驱动 V<sub>d</sub>cos(ω<sub>d</sub>t) 施加在栅极上 → H<sub>d</sub> = 2eV<sub>d</sub>cos(ω<sub>d</sub>t)·n̂。n̂ 的跃迁矩阵元 ⟨0|n̂|1⟩ ≈ 1-2 才是「旋钮的刻度」。"),
-("旋转坐标系", "站在以 ω<sub>d</sub> 转动的参考系里看量子态：不动的部分是「有效场」，快速转圈的部分会被平均掉——这就是 RWA 的几何图像。"),
-("脉冲面积定理", "共振驱动下态矢绕有效场转过的角度 = θ = n01·∫Ω(t)dt。θ=π 就是 X 门。实验上「调门」调的就是这个面积。"),
-])
+("驱动怎么耦合 qubit", "栅极上加一束微波 V<sub>d</sub>cos(ω<sub>d</sub>t)，通过电容耦合到岛上的库珀对，哈密顿量里就多出一项 H<sub>d</sub> = 2eV<sub>d</sub>cos(ω<sub>d</sub>t)·n̂。<br><br>真正决定「推力」的不是电压本身，而是电荷算符 n̂ 在两个能级之间的<b>跃迁矩阵元</b> ⟨0|n̂|1⟩ ≈ n<sub>01</sub>——它就是旋钮的刻度。transmon 的 n<sub>01</sub> ≈ 1–2，这正是我们能用普通幅度做门的原因；若是 CPB（E<sub>J</sub>/E<sub>C</sub> ≲ 1），n<sub>01</sub> 会小得多，同样电压几乎推不动。"),
+("旋转坐标系与 RWA", "换个视角：站在跟着 ω<sub>d</sub> 一起转动的参考系里，qubit 的态几乎不动，而驱动场被拆成两半——一半是<b>不动的横向有效场</b>，一半是以 2ω<sub>d</sub> 高速绕圈的碎屑。<br><br>后者在几个周期内平均归零（这就是 RWA 的全部内容）。于是「随时间驱动」的复杂问题退化成「绕一根固定轴匀速转」的静态问题——Bloch 球上那个旋转就是这么来的。"),
+("脉冲面积定理", "共振时，态矢量转过的角度只取决于包络的<b>面积</b>：$(tex(raw"\theta = n_{01}\!\int\!\Omega(t)\,dt"))，与包络是高斯、方波还是三角形无关。<br><br>θ=π 是 X 门（|0⟩↔|1⟩），θ=π/2 是 50/50 分束（做出叠加态），θ=2π 绕回原点但带一个相位。实验上「调门」调的就是这个面积——本页读数卡里的 θ 正是你拖 amp 时在改的东西。"),
+("快与准的权衡", "想门快就调大 amp，但 transmon 不是完美的两能级：|1⟩ 与 |2⟩ 只差一个非谐性 α（约 −0.3 GHz），强驱动会顺手把人口踢上去，泄漏按 $(tex(raw"p_2\propto amp^2")) 增长。<br><br>所以 π 门被卡在几十 ns 量级——再快就要付泄漏的代价。DRAG 用一条正交微分曲线把泄漏压回去，是下一页的主题。"),
+]))
 
 # ╔═╡ a0000000-0000-4000-8000-000000000004
-md"### ③ 调参（驱动频率默认锁定 f01，失谐为 0）"
+oq_stack(
+section_header("③", "调参（驱动频率默认锁定 f01，失谐为 0）"),
+callout("三个滑块对应三个旋钮：<b>amp</b> 是驱动幅度（GHz，决定转速与脉冲面积）、<b>σ</b> 是高斯包络宽度（ns，决定门时长）、<b>detune</b> 是驱动频率相对 f<sub>01</sub> 的偏移（GHz，看失谐怎么毁掉门）。<br><br><b>建议动的顺序</b>：先把 detune 归零、σ 固定 10 ns，只拖 amp 做出一个 π 门——这样「面积」这一个效应不会和别的混在一起；调好后再动 detune，观察幅度因子掉下来；最后勾上「对比模式」看泄漏。EJ/EC 两个滑块是换器件（改 f<sub>01</sub> 与非谐性），不是门参数，最后再动。",
+	tone="tip", title="调参前先看这里：先动哪个、为什么"),
+)
 
 # ╔═╡ a0000000-0000-4000-8000-000000000005
 @bind EJ Slider(5:0.5:50; default=20)
@@ -183,7 +199,8 @@ begin
 			margin=attr(l=10, r=10, t=52, b=10), height=620, updatemenus=animation_menu(),
 			legend=attr(orientation="h", y=1.06, x=0, bgcolor="rgba(0,0,0,0)", font=attr(size=11, color=SUB))),
 		frames)
-	plotly_html("oq_bloch", pbloch; height=630)
+	oq_stack(plotly_html("oq_bloch", pbloch; height=630),
+		figure_note("看图要诀：① 红点是当前态、紫点是终点——θ=π 时它贴到南半球（|1⟩）；② 轨迹绕的是「有效场」轴，失谐时这根轴会向 z 歪斜（反转因此不完全）；③ 点播放对照推导第 5 步：红点在球面上的摆动就是 $(tex(raw"\sin^2")) 振荡的投影。"))
 end
 
 # ╔═╡ a0000000-0000-4000-8000-00000000000f
@@ -206,31 +223,57 @@ begin
 	ppop = PlotlyBase.Plot(tr2,
 		layout_base(height=300, title="能级布居（虚线=双倍幅度对比）", xtitle="时间 (ns)", ytitle="布居",
 			yrange=[0, 1]))
-	oq_stack(plotly_html("oq_penv", penv; height=290), plotly_html("oq_pops", ppop; height=310))
+	oq_stack(plotly_html("oq_penv", penv; height=290), plotly_html("oq_pops", ppop; height=310),
+		figure_note("看图要诀：① 上图是包络——面积 $(tex(raw"\theta = n_{01}\cdot amp\cdot\sigma\sqrt{\pi}")) 才是门的度量，形状只影响泄漏；② 下图蓝/绿互补（$(tex(raw"p_0+p_1=1"))，能量守恒），青色 |2⟩ 是代价项；③ 勾「对比模式」看虚线：幅度翻倍时 |2⟩ 涨约 4 倍——平方律的直接证据。"))
 end
 
 # ╔═╡ a0000000-0000-4000-8000-000000000010
+oq_stack(
 derivation("⑤ 推导溯源：从驱动电路到 Rabi 公式",
 [
-	("近似", "两能级投影：$(tex(raw"|0\rangle,\ |1\rangle")) 子空间，$(tex(raw"\hat n \;\to\; n_{01}\,\sigma_x"))（对角项 ~0，奇偶性禁戒）", "前提 |α| 足够大；泄漏大小由推导末步的微扰估计给出，读数卡实时验证。"),
-	("代入", texblock(raw"H = \frac{\omega_{01}}{2}\,\sigma_z \;+\; \Omega(t)\cos(\omega_d t)\,n_{01}\sigma_x, \qquad \Omega(t) = amp\cdot\exp\!\left(-\frac{(t-t_0)^2}{\sigma^2}\right)"), "栅极电压驱动 $(tex(raw"2eV_d\cos(\omega_d t)"))·$(tex(raw"\hat n")) 投影到两能级。"),
-	("代入", texblock(raw"U = \exp\!\left(i\,\omega_d t\,\frac{\sigma_z}{2}\right): \qquad \sigma_x \to \sigma_x\cos(\omega_d t) - \sigma_y\sin(\omega_d t)"), "把快转动转进基矢，只剩「有效场」慢变部分 + 快速绕圈部分。"),
-	("近似", texblock(raw"\mathrm{RWA:}\quad \overline{2\omega_d\,\mathrm{term}} = 0 \;\;\Rightarrow\;\; H_{\mathrm{eff}} = \frac{\delta}{2}\sigma_z + \frac{\Omega_R}{2}\sigma_x, \qquad \Omega_R = amp\cdot n_{01}, \quad \delta = \omega_d - \omega_{01}"), "适用条件 $(tex(raw"\omega_d \gg \Omega_R"))；读数卡的「实测/理论」对照就是这一步的验证。"),
-	("代入", texblock(raw"P_1(t) = \frac{\Omega_R^2}{\Omega_R^2+\delta^2}\;\sin^2\!\left(\sqrt{\Omega_R^2+\delta^2}\cdot\frac{t}{2}\right)"), "$(tex(raw"\delta=0")) 退化为纯 Rabi 振荡 $(tex(raw"\sin^2(\Omega_R t/2)"))；$(tex(raw"\delta\neq 0")) 则反转不完全且频率变快。"),
-	("整理", texblock(raw"\theta = n_{01}\!\int\!\Omega(t)\,dt = n_{01}\cdot amp\cdot\sigma\sqrt{\pi} \qquad\Rightarrow\qquad \theta=\pi:\ X\ \mathrm{gate}\ (|0\rangle\leftrightarrow|1\rangle)"), "调参任务里调的就是 $(tex(raw"\theta"))。实验上用 Rabi 频率×脉宽定标。"),
-	("微扰", texblock(raw"p_2 \approx \left(\frac{amp\cdot V_{12}}{\Delta_2}\right)^2, \qquad \Delta_2 = f_{12}-\omega_d \approx \alpha"), "这解释了为什么强驱动必然泄漏（$(tex(raw"\Delta_2")) 只有 ~|α|）——正是 DRAG 脉冲要压掉的项。"),
+	("近似", "两能级投影：$(tex(raw"|0\rangle,\ |1\rangle")) 子空间，$(tex(raw"\hat n \;\to\; n_{01}\,\sigma_x"))（对角项 ~0，奇偶性禁戒）", "先把算符限制在 {|0⟩,|1⟩} 里。这一步要求非谐性 $(tex(raw"\alpha")) 足够大——否则 |1⟩ 紧贴 |2⟩，驱动一上来就「漏」过去（末步量化了这件事）。电荷算符在这个子空间里只有非对角元（宇称守恒禁戒对角项），于是 n̂ ≈ n<sub>01</sub>σ<sub>x</sub>：驱动变成一根推着 Bloch 矢量转的<b>横向力</b>。读数卡里的 n<sub>01</sub> 就是这根力的刻度。"),
+	("代入", texblock(raw"H = \frac{\omega_{01}}{2}\,\sigma_z \;+\; \Omega(t)\cos(\omega_d t)\,n_{01}\sigma_x, \qquad \Omega(t) = amp\cdot\exp\!\left(-\frac{(t-t_0)^2}{\sigma^2}\right)"), "把上一步塞回哈密顿量：第一项是 qubit 自身的能量，第二项是驱动。注意 $(tex(raw"\Omega(t)")) 是高斯包络，它决定<b>转速随时间怎么变</b>——这就是「脉冲形状」；滑块里的 σ 就是包络宽度，t<sub>0</sub> 是包络中心。实验室里这对应任意波形发生器输出的那一段包络。"),
+	("代入", texblock(raw"U = \exp\!\left(i\,\omega_d t\,\frac{\sigma_z}{2}\right): \qquad \sigma_x \to \sigma_x\cos(\omega_d t) - \sigma_y\sin(\omega_d t)"), "乘一个绕 z 轴转 $(tex(raw"\omega_d t")) 的酉变换，把「随时间转」从基矢里拿走。代价是 $(tex(raw"\sigma_x")) 被拆成两项：一项<b>不随时间变</b>（我们想要的有效场），一项以 $(tex(raw"2\omega_d")) 高速旋转（待会儿平均掉的碎屑）。"),
+	("近似", texblock(raw"\mathrm{RWA:}\quad \overline{2\omega_d\,\mathrm{term}} = 0 \;\;\Rightarrow\;\; H_{\mathrm{eff}} = \frac{\delta}{2}\sigma_z + \frac{\Omega_R}{2}\sigma_x, \qquad \Omega_R = amp\cdot n_{01}, \quad \delta = \omega_d - \omega_{01}"), "丢掉 $(tex(raw"2\omega_d")) 那项。合法条件是 $(tex(raw"\omega_d \gg \Omega_R"))：在有效场把 Bloch 矢量推过 90° 之前，碎屑已转了几千圈，净效应为零。结果是一个<b>静态</b>哈密顿量——问题从「受迫」变成「绕固定轴匀速转」。读数卡「实测/理论」对照的就是这一步：吻合即 RWA 成立。"),
+	("代入", texblock(raw"P_1(t) = \frac{\Omega_R^2}{\Omega_R^2+\delta^2}\;\sin^2\!\left(\sqrt{\Omega_R^2+\delta^2}\cdot\frac{t}{2}\right)"), "解静态哈密顿量的转动，投影到 |1⟩ 就是这个 $(tex(raw"\sin^2"))。两个因子要分开看：<b>幅度因子</b> $(tex(raw"\Omega_R^2/(\Omega_R^2+\delta^2)"))——失谐让反转不完全；<b>频率因子</b> $(tex(raw"\sqrt{\Omega_R^2+\delta^2}"))——失谐让振荡变快。$(tex(raw"\delta=0")) 时两者分别退化为 1 与 $(tex(raw"\Omega_R"))。"),
+	("整理", texblock(raw"\theta = n_{01}\!\int\!\Omega(t)\,dt = n_{01}\cdot amp\cdot\sigma\sqrt{\pi} \qquad\Rightarrow\qquad \theta=\pi:\ X\ \mathrm{gate}\ (|0\rangle\leftrightarrow|1\rangle)"), "对高斯包络积分得到面积，这就是<b>脉冲面积定理</b>的定量版。实验上「调门」就是找这个面积：把 amp×σ 调到 $(tex(raw"\theta=\pi"))。注意形状<b>不进</b>这个公式——高斯和方波只要面积相同就转过同样角度（真实器件里这一点不完全成立，因为泄漏依赖形状，见下）。"),
+	("微扰", texblock(raw"p_2 \approx \left(\frac{amp\cdot V_{12}}{\Delta_2}\right)^2, \qquad \Delta_2 = f_{12}-\omega_d \approx \alpha"), "最后看三能级的代价：|1⟩→|2⟩ 的耦合是 $(tex(raw"V_{12}"))，失谐只有 $(tex(raw"\Delta_2 \approx \alpha \approx -0.3")) GHz，强驱动下的非共振激发给出上式。分母这么小，就是「$(tex(raw"\pi")) 门不能无限快」的定量原因。"),
 	];
-lead="每一步都可点开。点击播放 Bloch 动画时对照第 5 步：红点轨迹就是 $(tex(raw"\sin^2")) 振荡在球面上的投影。",
-result="对照读数卡：实测 Rabi $(rabi_s) GHz vs 理论 amp·n01 = $(rabi_th_s) GHz；当前 θ = $(area_s)，泄漏 $(leak_s)%。")
+lead="这条推导只做一件事：<b>把「微波打上去」翻译成「Bloch 矢量转过一个角度」</b>。
+关键的转折在第 3–4 步——换个参考系，再把高频碎屑平均掉，问题就从「随时间受迫」退化成「绕固定轴匀速转」。
+第 5 步解这个静态问题，第 6 步把它落成实验上可调的量（脉冲面积），第 7 步给出代价（泄漏）。
+建议对照上方的 Bloch 轨迹与 p₁(t) 曲线逐步看：第 5 步的 $(tex(raw"\sin^2")) 就是红点在球面上摆动的投影。",
+result="结论回到读数卡：实测 Rabi $(rabi_s) GHz 与理论 amp·n01 = $(rabi_th_s) GHz 吻合 ⇒ RWA 与两能级投影都成立；
+当前 $(tex(raw"\theta")) = $(area_s)（拖 amp 或 σ 改面积；拖 detune 看幅度因子掉下来）；泄漏 $(leak_s)% 是三能级的代价，
+正是下一页 DRAG 要压掉的量。"),
+deep_dive("RWA 到底丢掉了什么？丢掉的项什么时候会咬人？", """
+<p>RWA 丢掉的 $(tex(raw"2\omega_d")) 项<b>不是小到没有</b>，而是「振荡得足够快，对布居的净贡献为零」。
+它的真实效果是一个很小的 <b>Bloch–Siegert 频移</b>：$(tex(raw"f_{01}")) 会被推高约 $(tex(raw"\Omega_R^2/(4\omega_d)"))。
+对本页典型参数（$(tex(raw"\Omega_R \approx 10")) MHz、$(tex(raw"\omega_d \approx 6")) GHz）这个频移约 kHz 量级，
+比门误差小得多，所以教学里常忽略；但在超快门（$(tex(raw"\Omega_R")) 与 $(tex(raw"|\alpha|")) 相比）或高精度标定时必须补上。</p>
+<p>还有两个隐藏条件：① 包络 $(tex(raw"\Omega(t)")) 的变化要慢于 $(tex(raw"1/\omega_d"))，
+本页 $(tex(raw"\sigma \ge 5")) ns 而 $(tex(raw"1/\omega_d \approx 0.17")) ns，安全；
+② $(tex(raw"\omega_d \gg \Omega_R"))。第二个条件常被误解成「amp 可以随便加大」——
+实际上 amp 大到 $(tex(raw"\Omega_R")) 与 $(tex(raw"\omega_d")) 同量级时，丢掉的项就会有可观测后果。</p>
+""", tone="detail"),
+deep_dive("常见误解：θ=2π 为什么不等于「什么都没做」？", """
+<p>$(tex(raw"\theta = 2\pi")) 时 Bloch 矢量绕回起点，布居看起来和初态一样，
+但态矢量拿到了一个 <b>−1 的相位</b>（$(tex(raw"\pi")) 的几何相位）。
+对 |0⟩ 单独来说这不重要；可一旦 |0⟩ 和 |1⟩ 处在叠加态，这个<b>相对相位</b>就可观测了。</p>
+<p>所以「2π 脉冲」在量子控制里是一个<b>有用的门</b>（相位门），不是白绕一圈。
+真实器件的标定里经常故意用 2π 脉冲来测相位——这也是「虚拟 Z 门」思想的起点：
+把相位当作软件里的一个数字去记录，而不是用微波去实现。</p>
+""", tone="warn"),
+)
 
 # ╔═╡ a0000000-0000-4000-8000-000000000011
 tryout([
-("亲手做出一个 X 门", "失谐=0，σ=10 ns 固定，拖 amp 到读数卡 θ≈3.14（约 amp≈0.085）。",
- "p1 曲线在脉冲结束时到达 ~1，Bloch 轨迹终止于 |1⟩ 附近（紫点贴南半球）。θ 再大，p1 回落——2π 脉冲。"),
-("失谐为什么毁掉门", "θ 调到 π 后，拖「失谐」到 0.1 GHz。",
- "p1 最大值跌到 ~0.9 以下（公式里的 Ω<sub>R</sub>²/(Ω<sub>R</sub>²+δ²) 因子），且振荡变快（√(Ω<sub>R</sub>²+δ²)）——实测/理论卡的频率也开始对不上（那是共振公式）。"),
-("亲手制造泄漏（DRAG 的动机）", "勾上「对比模式」（双倍幅度），amp=0.10，看 |2⟩ 曲线（青色）。",
- "双倍幅度的虚线 |2⟩ 明显更高——p<sub>2</sub> ∝ amp²。这就是为什么 π 门不能无限快：加速就要付出泄漏，DRAG 用正交微分分量把泄漏压回去（下一个演示的主题）。"),
+("亲手做出一个 X 门", "<b>动机</b>：门的定义就是「把 |0⟩ 精确翻到 |1⟩」，先把这件事做出来再谈别的。<br><b>做法</b>：失谐=0、σ=10 ns 固定，只拖 amp，直到读数卡的 θ ≈ 3.14（约 amp≈0.085）。",
+ "<b>看什么</b>：p₁ 曲线在脉冲结束时到达 ~1，Bloch 轨迹的红点终止在 |1⟩ 附近（南半球）。<br><b>说明什么</b>：$(tex(raw"\theta = n_{01}\cdot amp\cdot\sigma\sqrt{\pi} = \pi"))，面积定理成立。<br><b>如果没看到</b>：先确认 detune 归零，再看 amp 是不是拖过头了——θ>π 时 p₁ 会回落（2π 时完全回到 |0⟩）。"),
+("失谐为什么毁掉门", "<b>动机</b>：真实器件的 f<sub>01</sub> 会漂移，驱动频率不可能永远锁在共振，所以「失谐容忍度」是门质量的一部分。<br><b>做法</b>：先把 θ 调到 π，再把 detune 拖到 0.1 GHz（其它不动）。",
+ "<b>看什么</b>：p₁ 的峰值跌到 0.9 以下，同时振荡变快。<br><b>说明什么</b>：峰值由<b>幅度因子</b> $(tex(raw"\Omega_R^2/(\Omega_R^2+\delta^2)")) 决定，频率由<b>广义 Rabi 频率</b> $(tex(raw"\sqrt{\Omega_R^2+\delta^2}")) 决定——两个效应同时出现才是失谐的指纹（单纯噪声通常只改幅度）。<br><b>注意</b>：读数卡的「实测/理论」会开始对不上，因为那里的理论式是共振情形。"),
+("亲手制造泄漏（DRAG 的动机）", "<b>动机</b>：把「π 门不能无限快」从口号变成看得见的曲线。<br><b>做法</b>：勾上「对比模式」（双倍幅度），amp=0.10，盯住青色 |2⟩ 曲线。",
+ "<b>看什么</b>：双倍幅度的虚线 |2⟩ 明显更高。<br><b>说明什么</b>：$(tex(raw"p_2 \propto amp^2"))——驱动经非共振耦合 V<sub>12</sub> 把人口踢到 |2⟩，而失谐只有 $(tex(raw"\Delta_2 \approx |\alpha| \approx 0.3")) GHz。<br><b>对照</b>：把 amp 减半，看 |2⟩ 峰值降到约 1/4（平方律）。这一条曲线就是下一页 DRAG 的出发点。"),
 ])
 
 # ╔═╡ a0000000-0000-4000-8000-000000011002
