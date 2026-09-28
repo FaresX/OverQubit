@@ -50,6 +50,6 @@ export CZPair, cz_pair, cz_squid_ej, cz_hamiltonian, cz_levels, cz_level_energy,
 export HTMLStr, plotly_html, spec_json, layout_base, frame, animation_menu, anim_frame,
        derivation, concept_cards, tryout, PAL, PAL_FILL, INK, SUB, GRID, AXIS, FONT,
        banner, section_header, stat_card, setup_page, stat_row, readout_table, callout,
-       figure_note, lesson_nav, quiz, divider, oq_stack, tex, texblock
+       figure_note, lesson_nav, quiz, divider, oq_stack, tex, texblock, deep_dive
 
 end # module

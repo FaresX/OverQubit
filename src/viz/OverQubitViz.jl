@@ -9,7 +9,7 @@ using PlotlyBase
 export HTMLStr, plotly_html, spec_json, layout_base, frame, animation_menu, anim_frame
 export derivation, concept_cards, tryout, PAL, PAL_FILL, INK, SUB, GRID, AXIS, FONT
 export banner, section_header, stat_card
-export setup_page, stat_row, readout_table, callout, figure_note, lesson_nav, quiz, divider, oq_stack, tex, texblock
+export setup_page, stat_row, readout_table, callout, figure_note, lesson_nav, quiz, divider, oq_stack, tex, texblock, deep_dive
 
 # —— 原始 HTML 注入（Pluto 经 show(MIME"text/html") 渲染）——
 struct HTMLStr
@@ -246,6 +246,30 @@ function concept_cards(cards)
 		""")
 	end
 	HTMLStr("""<div style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0">$(String(take!(io)))</div>""")
+end
+
+"""
+    deep_dive(title, body; tone="detail")
+
+可折叠的「深入一点」块：放比主线更深的细节（推导边界、工程数值、历史、
+常见误解的成因），不展开也不影响理解主线。
+tone="detail"（默认，紫）| "warn"（橙，放误解/陷阱）| "tip"（青，放延伸）。
+"""
+function deep_dive(title::String, body::String; tone::String="detail")
+	(color, bg, border) = tone == "warn" ?
+		("#B8812E", "#FFFBF2", "rgba(184,129,46,0.35)") :
+		tone == "tip" ?
+		("#14655A", "#F4FCFA", "rgba(34,195,166,0.35)") :
+		("#7B61FF", "#F8F7FF", "rgba(123,97,255,0.28)")
+	HTMLStr("""
+	<details style="border:1px solid $(border);border-radius:10px;margin:10px 0;background:$(bg)">
+	<summary style="cursor:pointer;padding:9px 14px;font-size:13.5px;color:$(color);font-weight:700">
+	<span style="display:inline-block;padding:1px 8px;border-radius:9px;background:$(color);color:white;font-size:11px;margin-right:8px">深入一点</span>
+	$(title)
+	</summary>
+	<div style="padding:2px 18px 14px;font-size:13.5px;color:#33384D;line-height:2.0">$(body)</div>
+	</details>
+	""")
 end
 
 """试试看任务（title, 做法, 预期现象）——预期现象默认折叠"""
