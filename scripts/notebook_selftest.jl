@@ -108,10 +108,37 @@ function check_no_cjk_in_math(path::AbstractString)
 		basename(path), " 有 ", length(bad), " 处")
 end
 
+# —— 静态检查：LaTeX 括号与环境配平 ——
+# 括号不平衡会让 MathJax 渲染失败（merror），是公式最常见的一类错误。
+const LATEX_RE = r"(?:tex|texblock)\(raw\"([^\"]*)\""
+
+function check_latex_balance(path::AbstractString)
+	bad = Tuple{Int, String}[]
+	for (i, line) in enumerate(eachline(path))
+		s = strip(line)
+		(startswith(s, "#") || occursin("#", line)) && continue
+		for m in eachmatch(LATEX_RE, line)
+			inner = string(m.captures[1])
+			d1 = count(==('{'), inner) - count(==('}'), inner)
+			d2 = count(==('('), inner) - count(==(')'), inner)
+			nb = length(collect(eachmatch(r"\\begin\{", inner)))
+			ne = length(collect(eachmatch(r"\\end\{", inner)))
+			(d1 == 0 && d2 == 0 && nb == ne) && continue
+			push!(bad, (i, first(inner, 60)))
+		end
+	end
+	isempty(bad) && return nothing
+	for (i, b) in bad
+		println("  line ", i, " -> LaTeX 不配平：", b)
+	end
+	error("tex()/texblock() 的 LaTeX 括号或 begin/end 不配平：", basename(path), " 有 ", length(bad), " 处")
+end
+
 function run_notebook(path)
 	println("=== ", basename(path))
 	check_no_raw_frames(path)
 	check_no_cjk_in_math(path)
+		check_latex_balance(path)
 	mod = Module(Symbol("NB_", replace(basename(path), r"[^A-Za-z0-9_]" => "_")))
 	Base.include(mod, SRC)   # 预载包模块（含 viz 子模块；cell 里的 include 行由 INCLUDE_RE 剥掉）
 	text = read(path, String)
