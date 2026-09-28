@@ -134,15 +134,77 @@ function check_latex_balance(path::AbstractString)
 	error("tex()/texblock() 的 LaTeX 括号或 begin/end 不配平：", basename(path), " 有 ", length(bad), " 处")
 end
 
+# —— 静态检查：同一变量不许被多个 cell 顶层赋值（Pluto 多重定义错误）——
+# Pluto 的响应式规则：每个全局变量必须**恰有一个**定义 cell。两个 cell 都写 `tr = …`，
+# Pluto 报「tr 有多个定义」，notebook 里所有相关 cell 直接挂。
+# 自测的逐 cell 求值发现不了这类错——cell 顺序求值进同一个模块，Julia 语义下
+# 重赋值完全合法；这是 Pluto 语义与 Julia 语义的差异，必须静态按 Pluto 规则查 AST：
+#   收集「全局作用域」的赋值目标：begin/if/toplevel 正常下钻（它们不建作用域，
+#   cell 顶层 begin 里的赋值就是全局赋值）；let/for/while/function/macro/struct 体
+#   不下钻（局部化）；call/macrocall 内部不下钻（关键字参数 =(kw,…) 会误报）；
+#   @bind 的变量名按 Pluto 语义也算定义。
+function collect_defs!(names::Vector{Symbol}, ex)
+	ex isa Expr || return
+	if ex.head === :(=)
+		lhs = ex.args[1]
+		lhs isa Symbol && push!(names, lhs)
+		lhs isa Expr && lhs.head === :tuple && foreach(a -> a isa Symbol && push!(names, a), lhs.args)
+		collect_defs!(names, ex.args[2])
+	elseif ex.head === :const || ex.head === :global || ex.head === :local
+		collect_defs!(names, ex.args[1])
+	elseif ex.head === :function || ex.head === :macro
+		f = ex.args[1]
+		f isa Symbol ? push!(names, f) :
+			f isa Expr && f.head === :call && f.args[1] isa Symbol && push!(names, f.args[1])
+	elseif ex.head === :struct || ex.head === :abstract || ex.head === :primitive
+		push!(names, ex.args[2] isa Symbol ? ex.args[2] : ex.args[2].args[1])
+	elseif ex.head === :macrocall
+		length(ex.args) >= 3 && ex.args[1] === Symbol("@bind") && ex.args[3] isa Symbol &&
+			push!(names, ex.args[3])
+	elseif ex.head in (:call, :let, :for, :while, :module)
+		# 调用（含 kw 参数）、局部作用域体：不收集
+	else
+		for a in ex.args
+			collect_defs!(names, a)
+		end
+	end
+	return
+end
+
+function check_multiple_defs(path, chunks)
+	where = Dict{Symbol, Vector{Int}}()
+	for (i, chunk) in enumerate(chunks[2:end])
+		code = replace(chunk, CELL_RE => "")
+		(startswith(strip(code), "Cell order:") || startswith(strip(code), "PLUTO_")) && continue
+		names = Symbol[]
+		try
+			collect_defs!(names, Meta.parse("begin\n" * code * "\nend"))
+		catch
+		end
+		for n in unique(names)
+			push!(get!(where, n, Int[]), i)
+		end
+	end
+	dups = [n for (n, cs) in where if length(cs) > 1]
+	isempty(dups) && return nothing
+	for n in sort(string.(dups))
+		println("  变量 ", n, " 被多个 cell 顶层赋值（cells: ", join(where[Symbol(n)], ", "),
+			"）——Pluto 报「", n, " 有多个定义」。自包含展示 cell 用 let 包住",
+			"（动画 cell 例外：需要全局 tr+frames 供 spike/check_frames.jl 配对）")
+	end
+	error("Pluto 多重定义：", basename(path), " 有 ", length(dups), " 个变量被多个 cell 定义")
+end
+
 function run_notebook(path)
 	println("=== ", basename(path))
 	check_no_raw_frames(path)
 	check_no_cjk_in_math(path)
-		check_latex_balance(path)
+	check_latex_balance(path)
 	mod = Module(Symbol("NB_", replace(basename(path), r"[^A-Za-z0-9_]" => "_")))
 	Base.include(mod, SRC)   # 预载包模块（含 viz 子模块；cell 里的 include 行由 INCLUDE_RE 剥掉）
 	text = read(path, String)
 	chunks = split(text, "\n# ╔═╡")
+	check_multiple_defs(path, chunks)   # Pluto 语义的多重定义（逐 cell 求值查不出来，见函数头注释）
 	header = replace(chunks[1], r"\A### A Pluto\.jl notebook ###\n# v[\d.]+\n" => "")
 	include_string(mod, header, "header")
 	include_string(mod, """

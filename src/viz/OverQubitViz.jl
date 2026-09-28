@@ -31,6 +31,9 @@ const PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
 在 notebook 第一个 cell 调用：注入 plotly.js 懒加载器与轻量全局样式。
 懒加载器是必须的——Pluto 前端不预装 plotly.js，直接 `Plotly.newPlot` 会因 `Plotly` 未定义而静默失败；
 样式只做圆角卡片、细边框与淡色页底，不改变 Pluto 自身控件。
+`main { max-width: … }` 覆盖 Pluto 默认的内容宽度（~970px）——Pluto 的 main 容器自带
+max-width，cell 里的 <style> 注入页面后即可覆盖（官方 CSS 教程的推荐做法）；
+1400px 让双列卡片与宽图不再挤压，窄屏自动退回 100%−3rem。
 """
 function setup_page()
 	HTMLStr("""
@@ -48,6 +51,7 @@ function setup_page()
 	}
 	</script>
 	<style>
+	main { max-width: min(1400px, calc(100% - 3rem)) !important; }
 	body { background: #FAFBFF; }
 	.oq-plot { border-radius: 12px; border: 1px solid rgba(20,24,60,0.07); background: #fff;
 		box-shadow: 0 1px 10px rgba(20,24,60,0.04); margin: 4px 0 10px; }

@@ -82,7 +82,7 @@ open(OUT, "w") do io
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js"></script>
     <style>
     body{margin:0;background:#FAFBFF;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;color:#1A1A2E}
-    .wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+    .wrap{max-width:1400px;margin:0 auto;padding:24px 20px 60px}
     .cell{background:#fff;border:1px solid rgba(20,24,60,0.06);border-radius:10px;padding:6px 10px;margin:6px 0}
     mjx-container{overflow-x:auto; overflow-y:hidden}
     </style></head><body><div class="wrap">

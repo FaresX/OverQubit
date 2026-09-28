@@ -14,6 +14,7 @@
 - [ ] 新滑块同步 `scripts/notebook_selftest.jl` 的默认值表
 - [ ] 公式一律 `tex()` / `texblock()`（带 class="tex"、定界符用 `\(` `\)`、**数学里不出现中文**）——见 lessons §7
 - [ ] `derivation` 步骤是**三元组** `(操作, 公式, 说明)`（少一个 → BoundsError）
+- [ ] **自包含展示 cell 用 `let` 包住**（`begin` 不建作用域，变量名跨 cell 重复 → Pluto「有多个定义」）；动画 cell 例外，独占全局 `tr`+`frames`（lessons §8）
 - [ ] 跑 `julia --project=. scripts/notebook_selftest.jl` → 必须 `NOTEBOOK SELF-TEST PASS`
 
 ## B. 改动物理层（`src/transmon.jl` 等，入口 `src/OverQubit.jl`）

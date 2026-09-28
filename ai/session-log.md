@@ -330,3 +330,74 @@ iSWAP 动力学对比的 `argmax` 峰位检查（原 validate_new §3）：sin²
 
 **验证**：`Pkg.test()` 通过、`notebook_selftest` 全过、9 页 `mjx-container` 数 == `.tex` 数、
 0 个 MathJax 错误、0 处 raw 双反斜杠残留。
+
+---
+
+## 2026-09-28（第 8 轮）修复 Pluto「变量有多个定义」+ 静态防回归
+
+**触发**：用户在 Pluto 打开 cz_gate.jl 报 `tr 有多个定义`（附截图），猜测是"没有用 let 块
+导致的全局变量冲突"，要求确认真实原因并记录。
+
+**确认结论**（猜测正确，机制补全）
+- 根因：Pluto 响应式要求**每个全局变量恰有一个定义 cell**；展示 cell 用 `begin` 包住画图代码，
+  begin 不建作用域 → `tr = …` 是全局赋值，多个 cell 重复定义同名变量即报错。
+- 为什么自测没发现：selftest 逐 cell 顺序求值进同一模块，Julia 语义下重赋值合法——
+  这是 Pluto 语义与 Julia 语义的差异，只能静态查。
+- 为什么只有 4 本中招：cz_gate 早前的 cell 用了 `let`（合法样板），后写的 cell 抄成 `begin`；
+  flux_tuning / mvp0 / s21_readout / single_qubit_gate / cz_calibration 本来就无重复。
+- git diff 证实非重构引入（第 7 轮重构未触碰任何 `tr` 行），系 notebook 初版笔误一直潜伏。
+
+**做了什么**
+- 普查（AST 扫描 + 跨 cell 读检查，确认无真实跨 cell 读取）后修复 9 个 cell 的包装
+  `begin` → `let`：cz_gate 29/30（tr、lay）、drag 12/13、t1_t2 22/23/24、two_qubit 18/20/22
+  （tr、ann）。**动画 cell 不动**（cz_gate 28、t1_t2 26、two_qubit 21）：check_frames 需要
+  模块级 tr+frames 配对。
+- `notebook_selftest.jl` 新增 `check_multiple_defs`（Pluto 语义 AST 静态检查，@bind 名计入，
+  let/for/while/function 体与 call 内部豁免）；正反例单测验证有效（let 包住通过、双裸 tr 报错）。
+- `ai/lessons.md` §8（症状/根因/对策/防回归）、`ai/checklists.md` A 节补检查项。
+
+**验证**
+- `notebook_selftest.jl`：9 个 notebook 全 PASS（新检查已生效，含 9 处 let 改写后的 cell 求值）。
+- `spike/check_frames.jl`：`FRAME-TRACES CHECK PASS`（7 个动画 cell 配对完好）。
+- Pluto 语义复查：9 本 notebook 零多重定义（multidef 扫描全 OK）。
+
+**遗留**
+- 修复与新检查未 commit（连同工作区里已有的 Project.toml Pluto 依赖变更——非本轮改动）。
+- 教训编号说明：session-log 已有两个"第 7 轮"（重构轮与教学扩写轮，后者由另一会话记录），
+  本轮起顺延为第 8 轮；旧条目不改。
+
+---
+
+## 2026-09-28（第 9 轮）页面加宽 + 九本 notebook 文献对标充实
+
+**触发**：用户两件事——「笔记本的宽度太窄了，扩大一些」；「内容感觉不翔实，通过网络查询深入优化各笔记本内容」。
+
+**做了什么**
+- **宽度**：`setup_page()` 注入 `main { max-width: min(1400px, calc(100% - 3rem)) !important }`
+  （Pluto 默认 main ~970px，官方 CSS 教程的标准覆盖法）；`spike/preview_any.jl` 的 `.wrap` 1100→1400 同步。
+  生成预览验证两条规则都在产物里。
+- **文献调研**（WebSearch 8 轮）：Koch 2007（色散压制 exp(−√(8EJ/EC))、设计窗口 30–80）、
+  Blais 2021 RMP（χ 0.5–3 MHz、κ 0.1–10 MHz、κ≈2χ 经验法则）、Motzoi 2009（β≈−1/α）、
+  Purcell 滤波器（Reed 2010 / Sete 2015，压 10–100×、η 0.3–0.6）、T1 时间线（2007 ~1μs →
+  3D 2011 ~100μs → 钽 2021 >300μs）、磁通噪声（1/f、A≈10 μΦ0/√Hz、Anton 2013）、
+  两比特门族（Google Willow CZ ~1.5e-3 / 12–35 ns；IBM Heron CZ 2.85e-3 / ~68 ns；
+  CR 300–600 ns 历史）、net-zero CZ（arXiv:2202.06616）、DiCarlo 2009（89–91% 起点）。
+- **内容充实**：9 本 notebook 各新增 1 个「文献对标」cell（section_header + readout_table 参数对标 +
+  2 个 deep_dive：历史脉络/物理深潜/误解纠正）+ 1 道文献自测题（含错误选项辨析），
+  共 9 cell + 9 题。全部 `let` 包裹（零新全局变量）、静态内容（零新动画/滑块），
+  Cell order footer 同步插入。修正 3 处小节编号冲突（quiz 内置 ⑥、校准表行 ①–⑥ 避让）。
+
+**工程要点（下次照抄）**
+- 插入用 Python 逐行定位：cell 头要兼容 `# ╔═╡ uuid` 与 `# ╔═╡uuid`（drag 是无空格格式）、
+  行尾按文件主导值（CRLF/LF）统一；一次性插入脚本用完即删（防 §7.7 的重复运行事故）。
+- 新 cell 插在 tryout 之后、quiz 之前；footer 行 `# ╠═<uuid>` 插在 quiz 的 footer 行前。
+- 编号规则：小节标题按每本顺序（①③④⑤⑥ 之后接 ⑦），quiz 组件内置「⑥ 自测」、
+  tryout 内置「④ 试试看」不可占；cz_calibration 的校准表行标签 ①–⑥ 也要避让。
+
+**验证**
+- `notebook_selftest.jl`：9 本全 PASS（新 cell 逐格求值 + LaTeX 配平 + CJK 检查 + 多重定义检查全过）。
+- `Pkg.test()` 101/101；`check_frames.jl` PASS；multidef 扫描全 OK；预览页抽查
+  （新内容渲染、.tex 计数、1400px 规则）通过。
+
+**遗留**
+- 全部变更未 commit（连同第 8 轮的 let 修复与用户的 Project.toml Pluto 依赖变更）。

@@ -296,3 +296,46 @@ texblock(l)  # 独占一行 <div class="tex">\[...\]</div>
   改完 `\f` 变成非法转义 → 整个文件 parse 失败、9 个 notebook 全挂。
   规则：脚本只对 `notebooks/*.jl` 用；对 `src/` 逐行确认；改完立刻跑自测。
   已在 `spike/fix_raw.jl` 头部加了警告。
+
+## 8. 同一变量被多个 cell 顶层赋值 → Pluto「有多个定义」（第 8 轮）
+
+### 8.1 症状
+
+Pluto 里打开 `cz_gate.jl`（`drag` / `t1_t2` / `two_qubit` 同病），相关 cell 全部报：
+
+> `tr 有多个定义。使用 begin ... end 块将所有定义合并到一个响应式单元格中。`
+
+而 `julia --project=. scripts/notebook_selftest.jl` **全部 PASS**——无头自测完全发现不了。
+
+### 8.2 根因
+
+Pluto 的响应式规则：**每个全局变量在整本 notebook 里必须恰有一个定义 cell**（它要据此建
+依赖图）。展示 cell 的习惯写法是 `begin ... end` 包住整段画图代码——`begin` **不建作用域**，
+里面的 `tr = PlotlyBase.GenericTrace[]` 是货真价实的全局赋值；两个 cell 都叫 `tr` 即多重定义。
+
+两层麻痹：
+1. **Julia 语义 vs Pluto 语义**：顺序求值下重赋值完全合法。selftest 把 cell 逐个
+   `include_string` 进同一个模块 = 顺序求值，所以查不出来；check_frames 甚至**依赖**
+   "后一格把 `tr` 换成别的图"（用 objectid 判断 frames 是否本格新定义）。
+2. cz_gate 里早前的 cell（B1 磁通轨迹等）用的是 `let`，后写的 cell 抄了 `begin` 版式，
+   同一本 notebook 两种写法混用，肉眼很难发现。
+
+实测分布（修复前）：cz_gate `tr`(cells 29,30 顶层) + `lay`(29,30)；drag `tr`(12,13)；
+t1_t2 `tr`(22,23,24,26)；two_qubit `tr`(18,20,21,22) + `ann`(18,21)。
+
+### 8.3 对策（可直接抄）
+
+- **自包含展示 cell 一律 `let ... end`**：`let` 局部化本 cell 的全部赋值；
+  读取其他 cell 的全局（`dev`、`r`、`phi_s`…）不受影响。改之前确认没有**别的 cell**
+  读本 cell 的变量（改名排查：本 cell 定义集 ∩ 其他 cell 符号集，只允许命中重名自身）。
+- **动画 cell 是唯一例外**：`spike/check_frames.jl` 靠模块级 `tr` + `frames` 配对校验
+  帧的 traces 索引，动画 cell 必须保持 `begin` + 全局 `tr`/`frames`。一个 notebook 只有
+  一个动画 cell，名字天然独占。
+- 修法即把 9 个 cell 的 `begin` 换成 `let`（cz_gate 29/30、drag 12/13、t1_t2 22/23/24、
+  two_qubit 18/20/22），动画 cell（cz_gate 28、t1_t2 26、two_qubit 21）不动。
+
+### 8.4 防回归
+
+`notebook_selftest.jl` 新增 `check_multiple_defs`：按 Pluto 语义静态走 AST
+（`begin`/`if` 下钻、`let`/`for`/`while`/`function`/`struct` 体不下钻、`call`/`macrocall`
+内部不下钻防 kw 参数误报、`@bind` 名也算定义），任一变量被 2+ cell 顶层赋值直接 error。

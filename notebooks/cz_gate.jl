@@ -218,8 +218,108 @@ let
 	oq_stack(plotly_html("oq_cz_pulse", ppulse; height=260), plotly_html("oq_cz_phase", pph; height=310))
 end
 
+# ╔═╡ c2000001-0000-4000-8000-000000000015
+begin
+	# C · 双 Bloch 球：qubit2 全程无微波，qubit1 的条件 Bloch 矢量绕 z 转 π
+	function sphere(x0)
+		out = PlotlyBase.GenericTrace[]
+		for lat in [-60, -30, 0, 30, 60]
+			φ = deg2rad(lat); rr = cos(φ); z = fill(sin(φ), length(lons))
+			push!(out, PlotlyBase.scatter3d(x=x0 .+ rr .* cosd.(lons), y=rr .* sind.(lons), z=z; mode="lines",
+				line=attr(color="rgba(20,24,60,0.10)", width=1), showlegend=false, hoverinfo="skip"))
+		end
+		for lon in lons
+			push!(out, PlotlyBase.scatter3d(x=x0 .+ cos.(ths) .* cosd(lon), y=cos.(ths) .* sind(lon), z=sin.(ths);
+				mode="lines", line=attr(color="rgba(20,24,60,0.10)", width=1), showlegend=false, hoverinfo="skip"))
+		end
+		out
+	end
+	lons = collect(0:30:330); ths = deg2rad.(collect(-75:15:75))
+	tr = PlotlyBase.GenericTrace[]
+	for s in sphere(-1.6); push!(tr, s); end
+	for s in sphere(1.6); push!(tr, s); end
+	push!(tr, PlotlyBase.scatter3d(x=[1.6], y=[0.0], z=[-1.0]; mode="markers", marker=attr(size=9,
+		color=PAL[2], line=attr(color="white", width=2)), name="qubit2 = |1⟩（不动）"))
+	step = max(1, div(size(r.times, 1), 300))
+	push!(tr, PlotlyBase.scatter3d(x=-1.6 .+ r.cond_bloch[1:step:end, 1], y=r.cond_bloch[1:step:end, 2],
+		z=r.cond_bloch[1:step:end, 3]; mode="lines", line=attr(color=PAL[1], width=5), name="qubit1 条件 Bloch 轨迹"))
+	push!(tr, PlotlyBase.scatter3d(x=[-1.6 + r.cond_bloch[1, 1]], y=[r.cond_bloch[1, 2]], z=[r.cond_bloch[1, 3]];
+		mode="markers", marker=attr(size=7, color="#22C3A6"), name="起始 |+⟩"))
+	ann = [attr(x=-1.6, y=0, z=1.42, text="|0⟩₁", showarrow=false, font=attr(size=12, color="#22C3A6")),
+		attr(x=1.6, y=0, z=1.42, text="|0⟩₂", showarrow=false, font=attr(size=12, color="#22C3A6")),
+		attr(x=-1.6, y=0, z=-1.42, text="|1⟩₁", showarrow=false, font=attr(size=12, color="#22C3A6"))]
+	nfr = 48
+	fidx = round.(Int, range(1, size(r.times, 1); length=nfr))
+	# 条件 Bloch 动画红点作为最后一条专用 trace（只更新它，否则会顶掉第一条纬线）
+	push!(tr, PlotlyBase.scatter3d(x=[-1.6 + r.cond_bloch[1, 1]], y=[r.cond_bloch[1, 2]],
+		z=[r.cond_bloch[1, 3]]; mode="markers",
+		marker=attr(size=9, color="#FF7A7A", line=attr(color="white", width=2)),
+		showlegend=false, hoverinfo="skip"))
+	BALL = length(tr) - 1              # 0 基索引
+	frames = PlotlyBase.PlotlyFrame[]
+	for i in fidx
+		push!(frames, anim_frame(BALL, string(i), PlotlyBase.scatter3d(
+			x=[-1.6 + r.cond_bloch[i, 1]], y=[r.cond_bloch[i, 2]], z=[r.cond_bloch[i, 3]];
+			mode="markers", marker=attr(size=9, color="#FF7A7A", line=attr(color="white", width=2)),
+			showlegend=false, hoverinfo="skip")))
+	end
+	pbloch = PlotlyBase.Plot(tr, Layout(
+		title=attr(text="C · 条件 Bloch 球：qubit2 在 |1⟩ 时 qubit1 绕 z 转 π（点播放）", font=attr(size=16, color=INK)),
+		scene=attr(aspectmode="cube", xaxis=attr(visible=false), yaxis=attr(visible=false),
+			zaxis=attr(visible=false), annotations=ann, camera=attr(eye=attr(x=0.9, y=-2.0, z=1.2))),
+		font=attr(family=FONT), paper_bgcolor="white", margin=attr(l=10, r=10, t=52, b=10), height=520,
+		updatemenus=animation_menu(),
+		legend=attr(orientation="h", y=1.03, x=0.15, bgcolor="rgba(0,0,0,0)", font=attr(size=11, color=SUB))), frames)
+	plotly_html("oq_cz_bloch", pbloch; height=530)
+end
+
+# ╔═╡ c2000001-0000-4000-8000-000000000016
+let
+	# D · 相位 fringe：固定幅度扫长度——两个旋钮必须一起调的原因
+	function cphase_at(dev, amp, L; kind, dt)
+		rr = cz_evolve(dev, amp, L; kind=kind, dt=dt)
+		cz_conditional_phase(rr.Urel, dev.nlev)
+	end
+	lens = collect(18.0:2.0:44.0)
+	fracs = [0.6, 0.85, 1.05]
+	trs = [begin
+		cph = [cphase_at(dev, fa * phi_s, L; kind=shape_kind, dt=0.15) for L in lens]
+		PlotlyBase.scatter(x=lens, y=cph; mode="lines+markers",
+			name="幅度 = $(string(round(fa, digits=2)))·Φ*", line=attr(color=PAL[k], width=2.5))
+	end for (k, fa) in enumerate(fracs)]
+	tr = PlotlyBase.GenericTrace[]
+	for t in trs; push!(tr, t); end
+	push!(tr, PlotlyBase.scatter(x=lens, y=fill(π, length(lens)); mode="lines", name="π（CZ 目标）",
+		line=attr(color="#22C3A6", width=1.5, dash="dot")))
+	lay = layout_base(height=400, title="D · 相位 fringe：φ<sub>CZ</sub> 随脉冲长度扫过 π",
+		xtitle="脉冲长度 (ns)", ytitle="条件相位 φ<sub>CZ</sub> (rad)")
+	pfr = PlotlyBase.Plot(tr, lay)
+	plotly_html("oq_cz_fringe", pfr; height=410)
+end
+
 # ╔═╡ c2000001-0000-4000-8000-000000000017
 figure_note("三条曲线在 π 处的斜率都很陡（dφ/dL ≈ 0.2 rad/ns）——所以要<b>两个旋钮一起调</b>：幅度决定「开进去多深」（相位的量级），长度决定「积累多久」（相位的精细值）。⑨ 讲的就是这件事的实验流程。")
+
+# ╔═╡ c2000001-0000-4000-8000-000000000018
+let
+	# E · 末态相对传播子的模方热图：计算子空间内应近似对角
+	labs = ["00", "01", "02", "10", "11", "12", "20", "21", "22"]
+	Z = abs2.(r.Urel)
+	pe = PlotlyBase.heatmap(z=Z, x=1:9, y=1:9; colorscale="Blues", showscale=true,
+		colorbar=attr(title="|⟨f|U|i⟩|²", tickfont=attr(size=10, color=SUB), titlefont=attr(size=11, color=SUB)),
+		text=[string(round(Z[i, j], digits=3)) for i in 1:9, j in 1:9],
+		texttemplate="%{text}", textfont=attr(size=9, color="#33384D"), xgap=1, ygap=1)
+	axx = attr(title="末态 ⟨f|", gridcolor=GRID, zerolinecolor=AXIS, linecolor=AXIS,
+		tickfont=attr(size=11, color=SUB), titlefont=attr(size=12, color=SUB), tickvals=1:9, ticktext=labs)
+	axy = attr(title="初态 |i⟩", gridcolor=GRID, zerolinecolor=AXIS, linecolor=AXIS,
+		tickfont=attr(size=11, color=SUB), titlefont=attr(size=12, color=SUB), tickvals=1:9, ticktext=labs)
+	lay = Layout(title=attr(text="E · 末态相对传播子 |U_rel|²：计算态应打在计算态上（行列序为 |k1,k2⟩）",
+		font=attr(size=14, color=INK)), xaxis=axx, yaxis=axy, font=attr(family=FONT),
+		plot_bgcolor="white", paper_bgcolor="white", margin=attr(l=56, r=24, t=68, b=48), height=430,
+		legend=attr(orientation="h", y=1.02, x=0.0, bgcolor="rgba(0,0,0,0)", font=attr(size=11, color=SUB)))
+	pe2 = PlotlyBase.Plot(pe, lay)
+	plotly_html("oq_cz_U", pe2; height=440)
+end
 
 # ╔═╡ c2000001-0000-4000-8000-000000000019
 callout("对角线上四个格子的幅值平方都 ≈ 1、|0,2⟩ 那一行只有中心一点亮——脉冲把 |1,1⟩ 送去 |0,2⟩ 兜了一圈又<b>原封不动</b>送回来，只在相位上留下差别。出不来就是泄漏（B2 图橙线的末值）。",
@@ -307,7 +407,31 @@ quiz([
 	("脉冲太短时 CZ 的主要失效模式是？",
 	 ["相位累积太快", "非绝热激发把布居甩到 |0,2⟩ 回不来（泄漏）", "比特被推到能级之外", "出现 iSWAP 交换"], 2,
 	 "绝热条件要求脉冲足够慢：$(tex(raw"V/t_{\mathrm{rise}}")) 足够小、穿越时间远长于 $(tex(raw"1/(2V)"))。不满足就把人口留在 $(tex(raw"|0,2\rangle"))，即泄漏。<br><br><b>辨析</b>：相位累积太快不是失效（那只是相位标定问题）；「推到能级之外」说法不准确——人口是被推到子空间里的另一个态（|0,2⟩），不是出子空间；iSWAP 不会发生，因为 |0,1⟩/|1,0⟩ 全程离共振很远。"),
+	("net-zero CZ 脉冲「两半反号」为什么不破坏条件相位？",
+	 ["因为两半的磁通幅度相等", "条件相位是磁通 Phi 的偶函数——正负磁通同样累积；而平均磁通偏置类误差是奇函数，两半相消", "因为两半各转 pi/2", "因为参考演化会自动修正"], 2,
+	 "本页验证过 $(tex(raw"H(\Phi)")) 对 Φ 偶对称：+A 与 −A 脉冲的传播子逐项相同，条件相位两半同号累加；而「脉冲期间平均磁通偏离目标」这类线性误差随 Φ 反号，两半自动抵消——偶效应留下、奇效应消掉，这是 net-zero（arXiv:2202.06616）的全部原理。<b>错误选项辨析</b>：A 幅度相等是「对称」的必要条件但不是相位不坏的原因；C 两半各是完整的（半）门，不是各转一半角度；D 参考演化是本页计算相对相位的数值技巧，不在硬件里。"),
 ])
+
+# ╔═╡ c2000001-0000-4000-8000-00000000d001
+let
+	# 文献对标：真实 CZ 的波形工程
+	oq_stack(
+	section_header("⑤", "对标真实器件：从 90% 到 99.85% 的波形工程"),
+	readout_table([
+		("门时长", "本页 37.5 ns", "真实 20–40 ns（Google Willow 量级；受绝热边沿下限约束——本页「方沿 vs 平滑沿」演示的正是这个下限的来源）"),
+		("条件相位精度", "本页 |Δφ| ≈ 0.04 rad", "标定后 |φ<sub>CZ</sub> − π| &lt; 0.01 rad：chevron/fringe 精调 + 虚拟 Z 吃掉残差（相位类误差在现代控制栈里近乎免费修复）"),
+		("泄漏", "本页 ~0.3%", "真实 ~1e-3 量级：边沿整形（本页 taper）+ 幅度精修；再往下靠 net-zero 与最优控制"),
+		("波形", "本页 ±A 单极性", "真实多用 <b>net-zero</b>：+A / −A 两半对称，抵消平均磁通偏置与 TV 噪声（见深潜）"),
+		("谱约束", "本页 gap 图", "真实 |11⟩↔|02⟩ 避交叉 gap ~100–300 MHz：决定绝热下限与相面积速率，是布图时就算好的参数"),
+	]; title="本页每个旋钮在真实标定表里都有同名条目"),
+	deep_dive("net-zero 脉冲：把「偶效应留下、奇效应抵消」做成波形", """
+	<p>磁通脉冲的两个麻烦：fast-flux 线有低频漂移与来自控制电子学的 TV 噪声（脉冲期间平均磁通不准），直接吃门保真度。<b>net-zero</b>（Li 等，arXiv:2202.06616）把一次 CZ 拆成对称的两半：第一半 +A、第二半 −A。<b>条件相位是 Φ 的偶函数</b>（本页验证过 H(Φ) 对称——±amp 的 U 逐项相同），两半同号累积、一分不减；<b>线性误差是 Φ 的奇函数</b>——平均磁通偏移与 TV 串扰在两半中反号，恰好相消；低频磁通噪声还被自动折返（谱上等效一次自旋回波）。代价是总时长翻倍、每半的边沿更紧。它是「用对称性免费买稳健」的教科书案例——与 ⑦ 页回波、⑨ 页参考序列同一思想谱系。</p>
+	""", tone="detail"),
+	deep_dive("CZ 的十五年：89% → 99.85% 都改了什么", """
+	<p><b>2009</b>（DiCarlo 等，Nature）：磁通脉冲 CZ 拼出 CNOT，保真度 ~89–91%——主要损失是非绝热泄漏与磁通噪声。<b>2013–2017</b>：边沿整形、参数化波形（taper/SCALING）、失谐与幅度的联合优化，99% 关口攻破。<b>2019–2021</b>：net-zero 对称化 + 回波化两比特序列，99.5%+ 常态化。<b>2024</b>（Google Willow）：可调耦合器 + 全自动标定，CZ 错误 ~1.5×10<sup>−3</sup>（99.85%），足以支撑「低于门槛」的表面码演示。注意提升的来源分布：物理引擎（本页内容）2009 年已定；其后全是<b>波形工程、对称化与标定自动化</b>——这正是 ⑨ 页存在的理由。</p>
+	""", tone="tip"),
+	)
+end
 
 # ╔═╡ c2000001-0000-4000-8000-00000000001e
 @htl("""
@@ -317,106 +441,6 @@ quiz([
 <p><b>下一步去哪：</b><b>⑨ CZ 门校准方案</b> 用 chevron 二维扫描把这两个工作点找出来，并拆解误差预算（相位欠/过旋转、泄漏、退相干、波形边沿）；<b>⑦ T1/T2</b> 决定这些误差的量级上限。</p>
 </div>
 """)
-
-# ╔═╡ c2000001-0000-4000-8000-000000000018
-begin
-	# E · 末态相对传播子的模方热图：计算子空间内应近似对角
-	labs = ["00", "01", "02", "10", "11", "12", "20", "21", "22"]
-	Z = abs2.(r.Urel)
-	pe = PlotlyBase.heatmap(z=Z, x=1:9, y=1:9; colorscale="Blues", showscale=true,
-		colorbar=attr(title="|⟨f|U|i⟩|²", tickfont=attr(size=10, color=SUB), titlefont=attr(size=11, color=SUB)),
-		text=[string(round(Z[i, j], digits=3)) for i in 1:9, j in 1:9],
-		texttemplate="%{text}", textfont=attr(size=9, color="#33384D"), xgap=1, ygap=1)
-	axx = attr(title="末态 ⟨f|", gridcolor=GRID, zerolinecolor=AXIS, linecolor=AXIS,
-		tickfont=attr(size=11, color=SUB), titlefont=attr(size=12, color=SUB), tickvals=1:9, ticktext=labs)
-	axy = attr(title="初态 |i⟩", gridcolor=GRID, zerolinecolor=AXIS, linecolor=AXIS,
-		tickfont=attr(size=11, color=SUB), titlefont=attr(size=12, color=SUB), tickvals=1:9, ticktext=labs)
-	lay = Layout(title=attr(text="E · 末态相对传播子 |U_rel|²：计算态应打在计算态上（行列序为 |k1,k2⟩）",
-		font=attr(size=14, color=INK)), xaxis=axx, yaxis=axy, font=attr(family=FONT),
-		plot_bgcolor="white", paper_bgcolor="white", margin=attr(l=56, r=24, t=68, b=48), height=430,
-		legend=attr(orientation="h", y=1.02, x=0.0, bgcolor="rgba(0,0,0,0)", font=attr(size=11, color=SUB)))
-	pe2 = PlotlyBase.Plot(pe, lay)
-	plotly_html("oq_cz_U", pe2; height=440)
-end
-
-# ╔═╡ c2000001-0000-4000-8000-000000000016
-begin
-	# D · 相位 fringe：固定幅度扫长度——两个旋钮必须一起调的原因
-	function cphase_at(dev, amp, L; kind, dt)
-		rr = cz_evolve(dev, amp, L; kind=kind, dt=dt)
-		cz_conditional_phase(rr.Urel, dev.nlev)
-	end
-	lens = collect(18.0:2.0:44.0)
-	fracs = [0.6, 0.85, 1.05]
-	trs = [begin
-		cph = [cphase_at(dev, fa * phi_s, L; kind=shape_kind, dt=0.15) for L in lens]
-		PlotlyBase.scatter(x=lens, y=cph; mode="lines+markers",
-			name="幅度 = $(string(round(fa, digits=2)))·Φ*", line=attr(color=PAL[k], width=2.5))
-	end for (k, fa) in enumerate(fracs)]
-	tr = PlotlyBase.GenericTrace[]
-	for t in trs; push!(tr, t); end
-	push!(tr, PlotlyBase.scatter(x=lens, y=fill(π, length(lens)); mode="lines", name="π（CZ 目标）",
-		line=attr(color="#22C3A6", width=1.5, dash="dot")))
-	lay = layout_base(height=400, title="D · 相位 fringe：φ<sub>CZ</sub> 随脉冲长度扫过 π",
-		xtitle="脉冲长度 (ns)", ytitle="条件相位 φ<sub>CZ</sub> (rad)")
-	pfr = PlotlyBase.Plot(tr, lay)
-	plotly_html("oq_cz_fringe", pfr; height=410)
-end
-
-# ╔═╡ c2000001-0000-4000-8000-000000000015
-begin
-	# C · 双 Bloch 球：qubit2 全程无微波，qubit1 的条件 Bloch 矢量绕 z 转 π
-	function sphere(x0)
-		out = PlotlyBase.GenericTrace[]
-		for lat in [-60, -30, 0, 30, 60]
-			φ = deg2rad(lat); rr = cos(φ); z = fill(sin(φ), length(lons))
-			push!(out, PlotlyBase.scatter3d(x=x0 .+ rr .* cosd.(lons), y=rr .* sind.(lons), z=z; mode="lines",
-				line=attr(color="rgba(20,24,60,0.10)", width=1), showlegend=false, hoverinfo="skip"))
-		end
-		for lon in lons
-			push!(out, PlotlyBase.scatter3d(x=x0 .+ cos.(ths) .* cosd(lon), y=cos.(ths) .* sind(lon), z=sin.(ths);
-				mode="lines", line=attr(color="rgba(20,24,60,0.10)", width=1), showlegend=false, hoverinfo="skip"))
-		end
-		out
-	end
-	lons = collect(0:30:330); ths = deg2rad.(collect(-75:15:75))
-	tr = PlotlyBase.GenericTrace[]
-	for s in sphere(-1.6); push!(tr, s); end
-	for s in sphere(1.6); push!(tr, s); end
-	push!(tr, PlotlyBase.scatter3d(x=[1.6], y=[0.0], z=[-1.0]; mode="markers", marker=attr(size=9,
-		color=PAL[2], line=attr(color="white", width=2)), name="qubit2 = |1⟩（不动）"))
-	step = max(1, div(size(r.times, 1), 300))
-	push!(tr, PlotlyBase.scatter3d(x=-1.6 .+ r.cond_bloch[1:step:end, 1], y=r.cond_bloch[1:step:end, 2],
-		z=r.cond_bloch[1:step:end, 3]; mode="lines", line=attr(color=PAL[1], width=5), name="qubit1 条件 Bloch 轨迹"))
-	push!(tr, PlotlyBase.scatter3d(x=[-1.6 + r.cond_bloch[1, 1]], y=[r.cond_bloch[1, 2]], z=[r.cond_bloch[1, 3]];
-		mode="markers", marker=attr(size=7, color="#22C3A6"), name="起始 |+⟩"))
-	ann = [attr(x=-1.6, y=0, z=1.42, text="|0⟩₁", showarrow=false, font=attr(size=12, color="#22C3A6")),
-		attr(x=1.6, y=0, z=1.42, text="|0⟩₂", showarrow=false, font=attr(size=12, color="#22C3A6")),
-		attr(x=-1.6, y=0, z=-1.42, text="|1⟩₁", showarrow=false, font=attr(size=12, color="#22C3A6"))]
-	nfr = 48
-	fidx = round.(Int, range(1, size(r.times, 1); length=nfr))
-	# 条件 Bloch 动画红点作为最后一条专用 trace（只更新它，否则会顶掉第一条纬线）
-	push!(tr, PlotlyBase.scatter3d(x=[-1.6 + r.cond_bloch[1, 1]], y=[r.cond_bloch[1, 2]],
-		z=[r.cond_bloch[1, 3]]; mode="markers",
-		marker=attr(size=9, color="#FF7A7A", line=attr(color="white", width=2)),
-		showlegend=false, hoverinfo="skip"))
-	BALL = length(tr) - 1              # 0 基索引
-	frames = PlotlyBase.PlotlyFrame[]
-	for i in fidx
-		push!(frames, anim_frame(BALL, string(i), PlotlyBase.scatter3d(
-			x=[-1.6 + r.cond_bloch[i, 1]], y=[r.cond_bloch[i, 2]], z=[r.cond_bloch[i, 3]];
-			mode="markers", marker=attr(size=9, color="#FF7A7A", line=attr(color="white", width=2)),
-			showlegend=false, hoverinfo="skip")))
-	end
-	pbloch = PlotlyBase.Plot(tr, Layout(
-		title=attr(text="C · 条件 Bloch 球：qubit2 在 |1⟩ 时 qubit1 绕 z 转 π（点播放）", font=attr(size=16, color=INK)),
-		scene=attr(aspectmode="cube", xaxis=attr(visible=false), yaxis=attr(visible=false),
-			zaxis=attr(visible=false), annotations=ann, camera=attr(eye=attr(x=0.9, y=-2.0, z=1.2))),
-		font=attr(family=FONT), paper_bgcolor="white", margin=attr(l=10, r=10, t=52, b=10), height=520,
-		updatemenus=animation_menu(),
-		legend=attr(orientation="h", y=1.03, x=0.15, bgcolor="rgba(0,0,0,0)", font=attr(size=11, color=SUB))), frames)
-	plotly_html("oq_cz_bloch", pbloch; height=530)
-end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -872,6 +896,7 @@ version = "17.7.0+0"
 # ╠═c2000001-0000-4000-8000-00000000001b
 # ╠═c2000001-0000-4000-8000-00000000001c
 # ╠═c2000001-0000-4000-8000-00000000001d
+# ╠═c2000001-0000-4000-8000-00000000d001
 # ╠═c2000001-0000-4000-8000-00000000001e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
